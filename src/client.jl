@@ -151,7 +151,7 @@ end
 
 ## Overload Base functions
 
-Base.show(io::IO, sftp::SFTP.Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
+Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
 
 Base.broadcastable(sftp::Client) = Ref(sftp)
 

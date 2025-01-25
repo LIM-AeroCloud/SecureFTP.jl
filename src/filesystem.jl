@@ -29,9 +29,9 @@ function upload(
     path::AbstractString="."
 )::Nothing
     # Open local file
-    file = normpath(path, basename(file))
     open(file, "r") do local_file
         # Define remote file
+        file = normpath(path, basename(file))
         remote_file = change_uripath(sftp.uri, file, isfile=isfile(file)).path
         @debug "file upload local > remote" local_file, remote_file
         uri = change_uripath(sftp.uri, remote_file)
@@ -348,33 +348,37 @@ end
 
 
 """
-    rm(sftp::SFTP.Client, file::AbstractString)
+    rm(sftp::Client, path::AbstractString; recursive::Bool=false)
 
-Remove (delete) the `file` in the uri of the `sftp` client.
+Remove (delete) the `path` in the uri of the `sftp` client.
+Set the `recursive` flag to remove folders (recursively).
+Note that this can be very slow for large folders.
 """
-function Base.rm(sftp::Client, file::AbstractString; recursive::Bool=true)::Nothing
-    r = recursive ? "-r " : ""
-    ftp_command(sftp, "rm $r'$(unescape_joinpath(sftp, file))'")
+function Base.rm(sftp::Client, path::AbstractString; recursive::Bool=false)::Nothing
+
+    if isfile(stat(sftp, path))
+        # Delete the given file
+        ftp_command(sftp, "rm '$(unescape_joinpath(sftp, path))'")
+    elseif recursive
+        # Recursively delete the given path
+        for (root, dirs, files) in walkdir(sftp, path, topdown=false)
+            [ftp_command(sftp, "rm '$(unescape_joinpath(sftp, joinpath(root, file)))'") for file in files]
+            [ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, joinpath(root, dir)))'") for dir in dirs]
+        end
+        # Delete the main folder
+        ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, path))'")
+    else
+        throw(Base.IOError("the given path is a folder; set `recursive=true` to remove it", -1))
+    end
 end
 
 
 """
-    rmdir(sftp::SFTP.Client, dir::AbstractString)
-
-Remove (delete) the directory `dir` in the uri of the `sftp` client.
-"""
-function rmdir(sftp::Client, dir::AbstractString)::Nothing
-    Base.depwarn("rmdir(sftp, dir) is deprecated. Use rm(sftp, dir; recursive=true) instead.", :rmdir)
-    ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, dir))'")
-end
-
-
-"""
-    mkdir(sftp::SFTP.Client, dir::AbstractString)
+    mkpath(sftp::SFTP.Client, dir::AbstractString)
 
 Create a directory `dir` in the uri of the `sftp` client.
 """
-function Base.mkdir(sftp::Client, dir::AbstractString)::Nothing
+function Base.mkpath(sftp::Client, dir::AbstractString)::Nothing
     ftp_command(sftp, "mkdir '$(unescape_joinpath(sftp, dir))'")
 end
 
@@ -570,7 +574,7 @@ Join the `path` with the URI path  in `sftp` and return the unescaped path.
 Note, this function should not use URL:s since CURL:s api need spaces
 """
 unescape_joinpath(sftp::Client, path::AbstractString)::String =
-    URIs.resolvereference(sftp.uri, path).path |> URIs.unescapeuri
+    change_uripath(sftp.uri, path).path |> URIs.unescapeuri
 
 
 """
