@@ -86,12 +86,24 @@ The `stats` are of the format:
 """
 struct StatStruct
     desc::String
+    root::String
     mode::UInt
     nlink::Int
     uid::String
     gid::String
     size::Int64
     mtime::Float64
+
+    function StatStruct(desc::String, root::String, mode::UInt, nlink::Int, uid::String, gid::String, size::Int64, mtime::Float64)
+        if mode & 0xF000 == 0xa000
+            linkparts = split(desc, " -> ")
+            if length(linkparts) == 2
+                desc = linkparts[1]
+                root *= " -> " * linkparts[2]
+            end
+        end
+        new(desc, root, mode, nlink, uid, gid, size, mtime)
+    end
 end
 
 
@@ -142,9 +154,9 @@ end
 
 
 # See SFTP.StatStruct struct for help/docstrings
-function StatStruct(stats::AbstractString)::StatStruct
-    stats = split.(stats, limit = 9)
-    StatStruct(stats[9], parse_mode(stats[1]), parse(Int64, stats[2]), stats[3], stats[4],
+function StatStruct(stats::String, root::String)::StatStruct
+    stats = split(stats, limit = 9) .|> string
+    StatStruct((stats[9]), root, parse_mode(stats[1]), parse(Int64, stats[2]), stats[3], stats[4],
         parse(Int64, stats[5]), parse_date(stats[6], stats[7], stats[8]))
 end
 
@@ -200,12 +212,25 @@ end
 Return an updated `uri` struct with the given `path`.
 Set `isfile` to `true`, if the path is a file to omit the trailing slash.
 """
-function change_uripath(uri::URI, path::AbstractString...; isfile::Bool=false)::URI
+function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Client,Bool,Nothing}=nothing)::URI
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
     url = joinpath(uri, string.(path...))
-    isfile || (url = joinpath(url, ""))
+    # Add trailing slashes to directories, remove trailing slashes from files
+    dir = if trailing_slash isa Client
+        stats = stat(trailing_slash, url.path)
+        isdir(stats)
+    else
+        false
+    end
+    url = if dir || trailing_slash === true # === true is needed to distinguish from nothing
+        joinpath(url, "")
+    elseif isnothing(trailing_slash) || !endswith(pwd(url), "/")
+        url
+    else
+        joinpath(uri, pwd(url)[1:end-1])
+    end
     @debug "URI path" url.path
-    URIs.resolvereference(uri, URIs.escapepath(url.path))
+    URIs.resolvereference(uri, (URIs.escapepath∘pwd)(url))
 end
 
 
@@ -220,9 +245,7 @@ function findbase(stats::Vector{StatStruct}, base::AbstractString, path::Abstrac
     i = findfirst(isequal(base), pathnames)
     # Exception handling, if path is not found
     if isnothing(i)
-        @warn "base not found in path; attempting to recover with similar basename"
-        i = findall(startswith(base), pathnames)
-        i = length(i) == 1 ? i[1] : throw(PathNotFoundError(path))
+        throw(PathNotFoundError(path))
     end
     # Return index of base in stats
     return i
