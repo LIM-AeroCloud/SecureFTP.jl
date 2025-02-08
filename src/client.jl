@@ -168,30 +168,6 @@ Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.us
 Base.broadcastable(sftp::Client) = Ref(sftp)
 
 
-## Exception handling
-
-"""
-    PathNotFoundError(path)
-
-The `path` (file or folder) was not found.
-"""
-struct PathNotFoundError <: Exception
-  path::String
-end
-
-function Base.showerror(io::IO, e::PathNotFoundError)
-  println(io, "PathNotFoundError: directory or file not found\n$(e.path)")
-end
-
-
-"""
-    linkerror(link::String) -> Nothing
-
-Show an error for an anticipated `link` format.
-"""
-linkerror(link::String)::Nothing = @error "link '$link' did not have anticipated format; link shown as file in walkdir iterator"
-
-
 ## Helper functions for processing of server paths
 
 #¡ Trailing slashes needed for StatStruct and change_uripath!
@@ -237,7 +213,7 @@ end
 """
     findbase(stats::Vector{SFTP.StatStruct}, base::AbstractString, path::AbstractString) -> Int
 
-Return the index of `base` in `stats` or throw and `PathNotFoundError`, if `base` is not found.
+Return the index of `base` in `stats` or throw an `IOError`, if `base` is not found.
 """
 function findbase(stats::Vector{StatStruct}, base::AbstractString, path::AbstractString)::Int
     # Get path names and find base in it
@@ -245,7 +221,7 @@ function findbase(stats::Vector{StatStruct}, base::AbstractString, path::Abstrac
     i = findfirst(isequal(base), pathnames)
     # Exception handling, if path is not found
     if isnothing(i)
-        throw(PathNotFoundError(path))
+        throw(Base.IOError("$path does not exist", -1))
     end
     # Return index of base in stats
     return i

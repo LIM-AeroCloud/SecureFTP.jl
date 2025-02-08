@@ -6,7 +6,7 @@
         file::AbstractString;
         remote_dir::AbstractString=".",
         local_dir::AbstractString="."
-    ) -> Nothing
+    )
 
 Upload (put) a `file` on the server. If file includes a path, this is where it is put
 on the server. The path may be relative to the current uri path of the `sftp` server
@@ -139,7 +139,7 @@ function statscan(
     url = change_uripath(sftp.uri, path, trailing_slash=true)
     io = IOBuffer();
     try
-         Downloads.download(string(url), io; sftp.downloader)
+        Downloads.download(string(url), io; sftp.downloader)
     finally
         reset_easy_hook(sftp)
     end
@@ -305,13 +305,27 @@ Base.isfile(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0x8000
 
 """
     pwd(sftp::SFTP.Client) -> String
-    pwd(uri::URI) -> String
+    pwd(uri::SFTP.URI) -> String
 
 Return the current URI path of the SFTP `Client` or an `URI` struct.
+If a `SFTP.Client` is given, `pwd` checks whether the path is valid and throws an
+`IOError` otherwise. For `URI` there are no validity checks.
 """
 Base.pwd
+
 Base.pwd(uri::URI)::String = isempty(uri.path) ? "/" : string(uri.path)
-Base.pwd(sftp::Client)::String = pwd(sftp.uri)
+
+function Base.pwd(sftp::Client)::String
+    if isempty(sftp.uri.path)
+        return "/"
+    else
+        path = string(sftp.uri.path)
+        # Check that path is valid or throw an error
+        stat(sftp)
+        # Return valid path
+        return path
+    end
+end
 
 
 """
@@ -325,7 +339,7 @@ function Base.cd(sftp::Client, dir::AbstractString)::Nothing
         # Change server path and save in sftp
         sftp.uri = change_uripath(sftp.uri, dir, trailing_slash=true)
         # Test validity of new path
-        isadir, path = analyse_path(sftp, pwd(sftp))
+        isadir = analyse_path(sftp, pwd(sftp.uri)) # ℹ use uri to avoid duplicate stat check
         isadir || throw(Base.IOError("$dir is not a directory", -1))
     catch
         # Ensure previous url on error
@@ -355,10 +369,10 @@ end
 
 
 """
-    rm(sftp::Client, path::AbstractString; recursive::Bool=false)
+    rm(sftp::SFTP.Client, path::AbstractString; recursive::Bool=false)
 
-Remove (delete) the `path` in the uri of the `sftp` client.
-Set the `recursive` flag to remove folders (recursively).
+Remove (delete) the `path` on the `sftp` client.
+Set the `recursive` flag to remove folders recursively.
 
 !!! warning
     Recursive deletions can be very slow for large folders.
@@ -391,18 +405,94 @@ end
 
 
 """
-    mkpath(sftp::SFTP.Client, dir::AbstractString)
+    mkdir(sftp::SFTP.Client, dir::AbstractString) -> String
 
-Create a directory `dir` in the uri of the `sftp` client.
+Create a new `dir` on the `sftp` server and return the name of the created directory.
+Although a path can be given as `dir`, `dir` can only be created in an existing directory,
+i.e. the path up to the basename of `dir` must exist. Otherwise, and in case of already
+existing folders, an error is thrown.
 """
-function Base.mkpath(sftp::Client, dir::AbstractString)::Nothing
-    ftp_command(sftp, "mkdir '$(unescape_joinpath(sftp, dir))'")
+function Base.mkdir(sftp::Client, dir::AbstractString)::String
+    uripath = joinpath(sftp, dir) |> pwd
+    uri, base = splitdir(sftp, uripath)
+    isadir = analyse_path(sftp, uri.path)
+    if isadir
+        stats = statscan(sftp, uri.path)
+        if basename(dir) in [s.desc for s in stats]
+            throw(Base.IOError("$dir already exists", -2))
+        else
+            mkpath(sftp, uripath)
+        end
+    else
+        # ¡This should not be reached and covered by error handling of analyse_path!
+        throw(Base.IOError("$dir is not a directory", -1))
+    end
+    return dir
+end
+
+
+"""
+    mkpath(sftp::SFTP.Client, path::AbstractString)
+
+Create a `path` on the `sftp` client.
+"""
+function Base.mkpath(sftp::Client, path::AbstractString)::Nothing
+    ftp_command(sftp, "mkdir '$(unescape_joinpath(sftp, path))'")
+end
+
+
+"""
+    readdir(
+        sftp::SFTP.Client,
+        path::AbstractString = ".";
+        join::Bool = false,
+        sort::Bool = true,
+        check_path::Bool = false
+    ) -> Vector{String}
+
+Read the current directory on the `sftp` client and return a vector of strings
+with the file names just like Julia's `readdir`.
+If `join` is set to `true`, the list of file names include the absolute path.
+Sorting of file names can be switched off with the `sort` flag to optimise performance.
+Depending on the server settings, readdir may return an empty vector for non-existant paths.
+To ensure an error is thrown for non-existant paths, set `check_path` to `true`.
+
+!!! note
+    Setting `check_path` to `true` can drastically reduce the performance for
+    large existing folders. If you know the folder structure, you should avoid setting this flag.
+"""
+function Base.readdir(
+    sftp::Client,
+    path::AbstractString = ".";
+    join::Bool = false,
+    sort::Bool = true,
+    check_path::Bool = false
+)::Vector{String}
+    # Set path and optionally check validity
+    uri = joinpath(sftp.uri, path, "")
+    check_path && stat(sftp, uri.path)
+
+    # Reading folder
+    io = IOBuffer();
+    Downloads.download(string(uri), io; sftp.downloader)
+
+    # Don't know why this is necessary
+    res = String(take!(io))
+    io = IOBuffer(res)
+    files = readlines(io; keep=false)
+
+    # Post-Processing
+    filter!(x->x ≠ ".." && x ≠ ".", files)
+    sort && sort!(files)
+    join && (files = [joinpath(uri, f).path for f in files])
+
+    return files
 end
 
 
 """
     walkdir(
-        sftp::Client,
+        sftp::SFTP.Client,
         root::AbstractString=".";
         topdown::Bool=true,
         follow_symlinks::Bool=false,
@@ -489,7 +579,7 @@ function Base.walkdir(
     end
 
     # Check that root is a folder or link to folder
-    isadir, dirname = analyse_path(sftp, root)
+    isadir = analyse_path(sftp, root)
     if isadir
         return Channel{Tuple{String,Vector{String},Vector{String}}}(chnl -> _walkdir!(chnl, root))
     else
@@ -501,37 +591,19 @@ end
 
 
 """
-    readdir(sftp::SFTP.Client, join::Bool = false, sort::Bool = true)
+    joinpath(sftp::Client, path::AbstractString...) -> URI
 
-Reads the current directory. Returns a vector of Strings just like the regular readdir function.
+Join any `path` with the uri of the `sftp` client and return a `URI` with the updated path.
+
+!!! note
+    The `uri` field of the `sftp` client remains unaffected by joinpath.
+    Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` client.
 """
-function Base.readdir(
-    sftp::Client,
-    path::AbstractString=".";
-    join::Bool = false,
-    sort::Bool = true
-)::Vector{String}
-    uri = joinpath(sftp.uri, path, "")
-
-    io = IOBuffer();
-    Downloads.download(string(uri), io; sftp.downloader)
-
-    # Don't know why this is necessary
-    res = String(take!(io))
-    io = IOBuffer(res)
-    files = readlines(io; keep=false)
-
-    filter!(x->x ≠ ".." && x ≠ ".", files)
-
-    sort && sort!(files)
-    join && (files = [joinpath(uri, f).path for f in files])
-
-    return files
-end
+Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
 
 
 """
-    splitdir(uri::Client, path::AbstractString=".") -> Tuple{URI,String}
+    splitdir(uri::SFTP.URI, path::AbstractString=".") -> Tuple{URI,String}
     splitdir(sftp::SFTP.Client, path::AbstractString=".") -> Tuple{URI,String}
 
 Join the `path` with the path of the URI in `sftp` (or itself, if only a `URI`
@@ -556,7 +628,7 @@ Base.splitdir(sftp::Client, path::AbstractString=".")::Tuple{URI,String} = split
 
 
 """
-    basename(uri::URI, path::AbstractString=".") -> String
+    basename(uri::SFTP.URI, path::AbstractString=".") -> String
     basename(sftp::SFTP.Client, path::AbstractString=".") -> String
 
 Get the file name or current folder name of a `path`. The `path` can be absolute
@@ -576,8 +648,8 @@ Base.basename(sftp::Client, path::AbstractString=".") = splitdir(sftp.uri, path)
 
 """
     symlink_target!(
-        sftp::Client,
-        stats::StatStruct,
+        sftp::SFTP.Client,
+        stats::SFTP.StatStruct,
         root::AbstractString,
         dirs::Vector{String},
         files::Vector{String},
@@ -605,7 +677,7 @@ function symlink_target!(
     # Get stats of link target
     target = try
         target = split(stats.root, "->")[2] |> strip |> string
-        joinpath(pwd(sftp), root, target)
+        joinpath(pwd(sftp.uri), root, target) # ℹ use uri to avoid duplicate stat check
     catch
         throw(ArgumentError("the link root of the StatsStruct has the wrong format"))
     end
@@ -628,23 +700,23 @@ end
 
 
 """
-    analyse_path(sftp::Client, root::AbstractString) -> Tuple{Bool,String}
+    analyse_path(sftp::SFTP.Client, root::AbstractString) -> Bool
 
 Return, whether the `root` on the `sftp` server is a directory or a link pointing
 to a directory and the path of the directory.
 """
-function analyse_path(sftp::Client, root::AbstractString)::Tuple{Bool,String}
+function analyse_path(sftp::Client, root::AbstractString)::Bool
     # Return, if not a link
-    stats = stat(sftp)
-    islink(stats) || return isdir(stats), pwd(joinpath(sftp.uri, root))
+    stats = stat(sftp, root)
+    islink(stats) || return isdir(stats)
     # Check link target
     files, dirs = Vector{String}(), Vector{String}()
     symlink_target!(sftp, stats, root, dirs, files, true)
     # Return, if link is a folder and the path
     if length(dirs) == 1
-        true, dirs[1]
+        true
     elseif length(files) == 1
-        false, files[1]
+        false
     else
         Base.IOError("unknown link target", -2)
     end

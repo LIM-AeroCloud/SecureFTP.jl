@@ -16,6 +16,6 @@ include("filesystem.jl")
     eval(Meta.parse("public Client, SFTPStatStruct, download, stat, filemode, islink, isdir, isfile, pwd, cd, mv, rm, mkpath, walkdir, readdir, splitdir, basename"))
 end
 
-export PathNotFoundError, upload, statscan
+export upload, statscan
 
 end # module SFTP
