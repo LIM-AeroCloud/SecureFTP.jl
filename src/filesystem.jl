@@ -269,36 +269,57 @@ end
 
 ## Path object checks
 
+const PERFORMANCE_NOTICE = """
+A convenience method exists to directly check the `path` on the `sftp` server.
+However, if several path objects in the same folder are analysed, it is much more
+performant to use `statscan` once and then analyse each `SFTP.StatStruct`.
 """
+
+"""
+    filemode(sftp::SFTP.Client, path::AbstractString = ".") -> UInt
     filemode(st::SFTP.StatStruct) -> UInt
 
-Return the filemode in the `SFTP.StatStruct`.
+Return the filemode of the `SFTP.StatStruct`. $PERFORMANCE_NOTICE
 """
+Base.filemode
 Base.filemode(st::StatStruct)::UInt = st.mode
+Base.filemode(sftp::Client, path::AbstractString = ".")::UInt = stat(sftp, path).mode
 
 
 """
-    islink(st::SFTP.StatStruct) -> Bool
-
-Analyse the `SFTP.StatStruct` and return `true` for a symbolic link, `false` otherwise.
-"""
-Base.islink(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0xa000
-
-
-"""
+    isdir(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
     isdir(st::SFTP.StatStruct) -> Bool
 
 Analyse the `SFTP.StatStruct` and return `true` for a directory, `false` otherwise.
+$PERFORMANCE_NOTICE
 """
+Base.isdir
 Base.isdir(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0x4000
+Base.isdir(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0x4000
 
 
 """
+    isfile(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
     isfile(st::SFTP.StatStruct) -> Bool
 
 Analyse the `SFTP.StatStruct` and return `true` for a file, `false` otherwise.
+$PERFORMANCE_NOTICE
 """
+Base.isfile
 Base.isfile(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0x8000
+Base.isfile(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0x8000
+
+
+"""
+    islink(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
+    islink(st::SFTP.StatStruct) -> Bool
+
+Analyse the `SFTP.StatStruct` and return `true` for a symbolic link, `false` otherwise.
+$PERFORMANCE_NOTICE
+"""
+Base.islink
+Base.islink(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0xa000
+Base.islink(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0xa000
 
 
 ## Base filesystem functions
@@ -589,6 +610,8 @@ function Base.walkdir(
     end
 end
 
+
+## Path analysis and manipulation functions
 
 """
     joinpath(sftp::Client, path::AbstractString...) -> URI
