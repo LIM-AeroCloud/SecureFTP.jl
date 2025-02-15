@@ -149,7 +149,7 @@ function statscan(
     stats = readlines(io; keep=false)
 
     # Instantiate stat structs
-    stats = StatStruct.(stats, pwd(url))
+    stats = StatStruct.(stats, url.path)
     # Filter current and parent directory and sort by description
     if !show_cwd_and_parent
         filter!(s -> s.desc ≠ "." && s.desc ≠ "..", stats)
@@ -340,11 +340,10 @@ function Base.pwd(sftp::Client)::String
     if isempty(sftp.uri.path)
         return "/"
     else
-        path = string(sftp.uri.path)
         # Check that path is valid or throw an error
-        stat(sftp)
+        stat(sftp, sftp.uri.path)
         # Return valid path
-        return path
+        return sftp.uri.path
     end
 end
 
@@ -360,7 +359,7 @@ function Base.cd(sftp::Client, dir::AbstractString)::Nothing
         # Change server path and save in sftp
         sftp.uri = change_uripath(sftp.uri, dir, trailing_slash=true)
         # Test validity of new path
-        isadir = analyse_path(sftp, pwd(sftp.uri)) # ℹ use uri to avoid duplicate stat check
+        isadir = analyse_path(sftp, sftp.uri.path)
         isadir || throw(Base.IOError("$dir is not a directory", -1))
     catch
         # Ensure previous url on error
@@ -374,51 +373,107 @@ end
 """
     mv(
         sftp::SFTP.Client,
-        old_name::AbstractString,
-        new_name::AbstractString;
+        src::AbstractString,
+        dst::AbstractString;
+        force::Bool=false
     )
 
-Move, i.e. rename, the file from `old_name` to `new_name` in the uri of the `sftp` client.
+Move `src` to `dst` in the uri of the `sftp` client.
+The parent folder `dst` is moved to must exist. The `src` is overwritten without
+warning, if `force` is set to `true`.
 """
 function Base.mv(
     sftp::Client,
-    old_name::AbstractString,
-    new_name::AbstractString;
+    src::AbstractString,
+    dst::AbstractString;
+    force::Bool=false
 )::Nothing
-    ftp_command(sftp, "rename '$(unescape_joinpath(sftp, old_name))' '$(unescape_joinpath(sftp, new_name))'")
+    # Check if parent folder for dst exists
+    stat(sftp, splitdir(sftp, dst)[1].path)
+    try
+        #* Move file
+        # Optional automatic overwrite of src
+        force && rm(sftp, dst; recursive=true, force)
+        # Move file
+        ftp_command(sftp, "rename '$(unescape_joinpath(sftp, src))' '$(unescape_joinpath(sftp, dst))'")
+    catch
+        # Initial check of src
+        uri = joinpath(sftp, src, "")
+        root_idx = length(uri.path) + 1
+        stats = stat(sftp, uri.path)
+        if isdir(stats)
+            #* Move folder
+            # Setup root folder
+            mkpath(sftp, joinpath(sftp, dst).path)
+            # Loop over folder contents
+            for (path, dirs, files) in walkdir(sftp, uri.path)
+                # Sync folders
+                mkpath.(sftp, joinpath.(sftp, dst, path[root_idx:end], dirs) .|> pwd)
+                # Sync files
+                isempty(files) && continue
+                old_file = joinpath.(sftp, path, files) .|> pwd
+                new_file = joinpath.(sftp, dst, path[root_idx:end], files) .|> pwd
+                [ftp_command(sftp,
+                    "rename '$(unescape_joinpath(sftp, old_file[i]))' '$(unescape_joinpath(sftp, new_file[i]))'")
+                    for i = 1:length(files)
+                ]
+            end
+            # Clean up src
+            rm(sftp, src; recursive=true, force=true)
+        else
+            throw(Base.IOError("cannot move non-existing file", -1))
+        end
+    end
 end
 
 
 """
-    rm(sftp::SFTP.Client, path::AbstractString; recursive::Bool=false)
+    rm(sftp::Client, path::AbstractString; recursive::Bool=false, force::Bool=false)
 
 Remove (delete) the `path` on the `sftp` client.
 Set the `recursive` flag to remove folders recursively.
+Suppress errors by setting `force` to `true`.
 
 !!! warning
     Recursive deletions can be very slow for large folders.
 """
-function Base.rm(sftp::Client, path::AbstractString; recursive::Bool=false)::Nothing
+function Base.rm(sftp::Client, path::AbstractString; recursive::Bool=false, force::Bool=false)::Nothing
     if recursive
         # Recursively delete the given path
-        for (root, dirs, files) in walkdir(sftp, path, topdown=false)
-            [ftp_command(sftp, "rm '$(unescape_joinpath(sftp, joinpath(root, file)))'") for file in files]
-            [ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, joinpath(root, dir)))'") for dir in dirs]
+        try
+            for (root, dirs, files) in walkdir(sftp, path, topdown=false)
+                [ftp_command(sftp, "rm '$(unescape_joinpath(sftp, joinpath(root, file)))'") for file in files]
+                [ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, joinpath(root, dir)))'") for dir in dirs]
+            end
+            # Delete the main folder (or file)
+            r = isdir(stat(sftp, path)) ? "rmdir" : "rm"
+            ftp_command(sftp, "$r '$(unescape_joinpath(sftp, path))'")
+        catch
+            if force
+                return
+            else
+                rethrow()
+            end
         end
-        # Delete the main folder (or file)
-        r = isdir(stat(sftp, path)) ? "rmdir" : "rm"
-        ftp_command(sftp, "$r '$(unescape_joinpath(sftp, path))'")
     else
         # Delete the given file
         try
             ftp_command(sftp, "rm '$(unescape_joinpath(sftp, path))'")
         catch
             # Delete possible empty folder
-            content = readdir(sftp, path)
-            if isempty(content)
-                ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, path))'")
-            else
-                throw(Base.IOError("cannot delete non-empty folder without recursive flag", -1))
+            try
+                content = readdir(sftp, path)
+                if isempty(content)
+                    ftp_command(sftp, "rmdir '$(unescape_joinpath(sftp, path))'")
+                elseif !force
+                    throw(Base.IOError("cannot delete non-empty folder without recursive flag", -1))
+                end
+            catch
+                if force
+                    return
+                else
+                    rethrow()
+                end
             end
         end
     end
@@ -563,10 +618,10 @@ function Base.walkdir(
         # Get complete URI of root
         uri = change_uripath(sftp.uri, root, trailing_slash=true)
         # Get stats on current folder
-        scans = try statscan(sftp, pwd(uri); sort)
+        scans = try statscan(sftp, uri.path; sort)
         catch err
             if err isa Downloads.RequestError && skip_restricted_access
-                @info "skipping $(pwd(uri)) due to restricted access"
+                @info "skipping $(uri.path) due to restricted access"
                 return
             else
                 rethrow(err)
@@ -700,7 +755,7 @@ function symlink_target!(
     # Get stats of link target
     target = try
         target = split(stats.root, "->")[2] |> strip |> string
-        joinpath(pwd(sftp.uri), root, target) # ℹ use uri to avoid duplicate stat check
+        joinpath(sftp.uri.path, root, target)
     catch
         throw(ArgumentError("the link root of the StatsStruct has the wrong format"))
     end

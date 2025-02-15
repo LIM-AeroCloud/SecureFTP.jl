@@ -154,6 +154,8 @@ end
 
 
 # See SFTP.StatStruct struct for help/docstrings
+StatStruct(stats::String, root::AbstractString)::StatStruct = StatStruct(stats, string(root))
+
 function StatStruct(stats::String, root::String)::StatStruct
     stats = split(stats, limit = 9) .|> string
     StatStruct((stats[9]), root, parse_mode(stats[1]), parse(Int64, stats[2]), stats[3], stats[4],
@@ -198,15 +200,15 @@ function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union
     else
         false
     end
-    url = if dir || trailing_slash === true # === true is needed to distinguish from nothing
+    url = if dir || trailing_slash === true # ℹ `=== true` is needed to distinguish from nothing
         joinpath(url, "")
-    elseif isnothing(trailing_slash) || !endswith(pwd(url), "/")
+    elseif isnothing(trailing_slash) || !endswith(url.path, "/")
         url
     else
-        joinpath(uri, pwd(url)[1:end-1])
+        joinpath(uri, url.path[1:end-1])
     end
     @debug "URI path" url.path
-    URIs.resolvereference(uri, (URIs.escapepath∘pwd)(url))
+    URIs.resolvereference(uri, URIs.escapepath(url.path))
 end
 
 
