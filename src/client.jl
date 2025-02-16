@@ -192,7 +192,7 @@ Set `isfile` to `true`, if the path is a file to omit the trailing slash.
 """
 function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Client,Bool,Nothing}=nothing)::URI
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    url = joinpath(uri, string.(path...))
+    url = joinpath(uri, string.(path)...)
     # Add trailing slashes to directories, remove trailing slashes from files
     dir = if trailing_slash isa Client
         stats = stat(trailing_slash, url.path)

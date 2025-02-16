@@ -2,43 +2,64 @@
 
 """
     upload(
-        sftp::SFTP.Client,
-        file::AbstractString;
-        remote_dir::AbstractString=".",
-        local_dir::AbstractString="."
+        sftp::Client,
+        src::AbstractString=".",
+        dst::AbstractString=".";
+        force::Bool=false,
+        ignore_hidden::Bool=false,
+        hide_identifier::AbstractString="."
     )
 
-Upload (put) a `file` on the server. If file includes a path, this is where it is put
-on the server. The path may be relative to the current uri path of the `sftp` server
-or absolute. On the local system, a `path` may be specified as last argument.
+Upload (put) `src` to `dst` on the server; `src` can be a file or folder.
+Folders are uploaded recursively. `dst` must be an existing folder on the server,
+otherwise an `IOError` is thrown. `src` may include an absolute or relative path
+on the local system, which is ignored on the server. `dst` can be an absolute path
+or a path relative to the current uri path of the `sftp` server.
+
+If `force` is set to `true`, any existing path at `dst` on the `sftp` server is
+overwritten without warning. If `ignore_hidden` is set to `true`, hidden files
+are omitted in the upload. The start sequence of `String` or `Char`, with which
+a hidden file starts, can be specified by the `hide_identifier`.
+By default it is assumed that hidden files start with a dot (`.`).
+
 
 # Examples
 
 ```julia
 sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
 
-upload(sftp, "test.csv", "/tmp")
+upload(sftp, "data/test.csv", "/tmp") # upload data/test.csv to /tmp/test.csv
 
 files=readdir()
-upload.(sftp, files)
+upload.(sftp, files) # all files of the current directory are uploaded to the current directory on the server
+
+upload(sftp, ignore_hidden=true) # the current folder is uploaded to the server without hidden objects
 ```
 """
 function upload(
     sftp::Client,
-    file::AbstractString,
-    path::AbstractString="."
+    src::AbstractString=".",
+    dst::AbstractString=".";
+    force::Bool=false,
+    ignore_hidden::Bool=false,
+    hide_identifier::Union{Char,AbstractString}='.'
 )::Nothing
-    # Open local file
-    open(file, "r") do local_file
-        # Define remote file
-        file = normpath(path, basename(file))
-        # TODO handle files and folders
-        remote_file = change_uripath(sftp.uri, file)
-        @debug "file upload local > remote" local_file, remote_file.path
-        # Upload to server
-        Downloads.request(string(remote_file), input=local_file; downloader=sftp.downloader)
+    # Check remote and local path
+    path = joinpath(sftp, dst, "").path
+    isdir(sftp, path)
+    #* Upload src to dst
+    if isdir(src)
+        # Upload folder content recursively
+        root_idx = length(joinpath(src, "")) + 1
+        for (root, dirs, files) in walkdir(src)
+            ignore_hidden && filter!(!startswith(hide_identifier), dirs)
+            mkpath.(sftp, joinpath.(sftp, path, root[root_idx:end], dirs) .|> pwd)
+            upload_file.(sftp, joinpath.(root, files), joinpath.(sftp, path, root[root_idx:end], basename.(files)); force, ignore_hidden, hide_identifier)
+        end
+    else
+        # Upload file
+        upload_file(sftp, src, joinpath(sftp, dst, basename(src)); force, ignore_hidden, hide_identifier)
     end
-    return
 end
 
 
@@ -97,6 +118,42 @@ function Base.download(
     uri = change_uripath(sftp.uri, filename, trailing_slash=false)
     Downloads.download(string(uri), output; sftp.downloader)
     return output
+end
+
+
+## Helper functions for server exchange
+
+"""
+    upload_file(
+        sftp::Client,
+        src::AbstractString,
+        dst::URI;
+        force::Bool=false,
+        ignore_hidden::Bool=false,
+        hide_identifier::Union{Char,AbstractString}='.'
+    )
+
+Upload `src` to the `dst` URI on the `sftp` server. If `force` is set to `true`,
+existing files on the server are overwritten without warning. Hidden files can be
+ignored for upload by setting `ignore_hidden` to `true`. The start sequence of `String`
+or `Char` of hidden files can be changed with `hide_identifier`.
+"""
+function upload_file(
+    sftp::Client,
+    src::AbstractString,
+    dst::URI;
+    force::Bool=false,
+    ignore_hidden::Bool=false,
+    hide_identifier::Union{Char,AbstractString}='.'
+)::Nothing
+    # Initial checks and clean-up
+    ignore_hidden && startswith(basename(src), hide_identifier) && return
+    force && rm(sftp, dst.path; recursive=true, force)
+    # Open local file and upload to server
+    open(src, "r") do f
+        Downloads.request(string(dst), input=f; downloader=sftp.downloader)
+    end
+    return
 end
 
 
@@ -669,15 +726,18 @@ end
 ## Path analysis and manipulation functions
 
 """
-    joinpath(sftp::Client, path::AbstractString...) -> URI
+    joinpath(sftp::SFTP.Client, path::AbstractString...) -> URI
+    joinpath(sftp::URI, path::AbstractString...) -> URI
 
-Join any `path` with the uri of the `sftp` client and return a `URI` with the updated path.
+Join any `path` with the uri of the `sftp` client or the `uri` directly and return
+an `URI` with the updated path.
 
 !!! note
     The `uri` field of the `sftp` client remains unaffected by joinpath.
     Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` client.
 """
 Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
+Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path...)
 
 
 """
