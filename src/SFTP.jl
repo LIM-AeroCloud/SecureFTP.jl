@@ -13,7 +13,7 @@ include("client.jl")
 include("filesystem.jl")
 
 @static if VERSION ≥ v"1.11"
-    eval(Meta.parse("public Client, SFTPStatStruct, download, stat, filemode, islink, isdir, isfile, pwd, cd, mv, rm, mkpath, walkdir, readdir, splitdir, basename"))
+    eval(Meta.parse("public Client, SFTPStatStruct, download, stat, filemode, islink, ispath, isdir, isfile, pwd, cd, mv, rm, mkpath, walkdir, readdir, splitdir, basename"))
 end
 
 export upload, statscan

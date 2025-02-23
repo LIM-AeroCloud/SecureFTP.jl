@@ -9,18 +9,19 @@
         force::Bool=false,
         ignore_hidden::Bool=false,
         hide_identifier::Union{Char,AbstractString}='.'
-    )
+    ) -> String
 
 Upload (put) `src` to `dst` on the server; `src` can be a file or folder.
 Folders are uploaded recursively. `dst` must be an existing folder on the server,
 otherwise an `IOError` is thrown. `src` may include an absolute or relative path
 on the local system, which is ignored on the server. `dst` can be an absolute path
-or a path relative to the current uri path of the `sftp` server.
+or a path relative to the current uri path of the `sftp` server. The function returns
+the absolute path of `src` on the local system.
 
 If `merge` is set to `true`, the content of `src` is merged into any existing `dst`
 folder. If `force` is set to `true`, any existing path at `dst` on the `sftp` server is
-overwritten without warning. If both flags are set, upload first tries to mere folders
-and onlu overwrites files. If `ignore_hidden` is set to `true`, hidden files
+overwritten without warning. If both flags are set, `upload` first tries to mere folders
+and only overwrites files. If `ignore_hidden` is set to `true`, hidden files
 are omitted in the upload. The start sequence of `String` or `Char`, with which
 a hidden file starts, can be specified by the `hide_identifier`.
 By default it is assumed that hidden files start with a dot (`.`).
@@ -47,32 +48,35 @@ function upload(
     force::Bool=false,
     ignore_hidden::Bool=false,
     hide_identifier::Union{Char,AbstractString}='.'
-)::Nothing
+)::String
     # Check remote and local path
     src = realpath(src)
     dst = joinpath(sftp, dst, "").path
     isdir(sftp, dst)
     #* Upload src to dst
     if isdir(src)
-        # Create base folder
-        dir, base = splitdir(src)
-        root_idx = length(dir) + 2 # ℹ +2 for index after the omitted trailing slash
-        mkfolder(sftp, joinpath(sftp, dst, base).path, merge, force)
         # Upload folder content recursively
+        path, base = splitdir(src)
+        hidden_dir = joinpath(path, string(hide_identifier))
+        ignore_hidden && startswith(src, hidden_dir) && return src
+        # Create base folder
+        root_idx = length(path) + 2 # ℹ +2 for index after the omitted trailing slash
+        mkfolder(sftp, joinpath(sftp, dst, base).path, merge, force)
         for (root, dirs, files) in walkdir(src)
-            cwd = joinpath(sftp, dst, root[root_idx:end]).path
+            # Ignore hidden folders and their conteent
+            if ignore_hidden
+                startswith.(root, hidden_dir) ? continue : (hidden_dir = joinpath(root, string(hide_identifier)))
+            end
             # Sync folders
+            cwd = joinpath(sftp, dst, root[root_idx:end]).path
             ignore_hidden && filter!(!startswith(hide_identifier), dirs)
             mkfolder.(sftp, joinpath.(sftp, cwd, dirs) .|> pwd, merge, force)
             # Sync files
-            pathobjects = force ? [] : readdir(sftp, cwd)
-            force && rm.(sftp, joinpath.(sftp, cwd, intersect(files, pathobjects)),
+            pathobjects = force ? readdir(sftp, cwd) : []
+            force && rm.(sftp, joinpath.(sftp, cwd, intersect(files, pathobjects)) .|> pwd,
                 recursive = true, force = true)
-            setdiff!(files, pathobjects)
-            upload_file.(sftp, joinpath.(root, files),
-                joinpath.(sftp, dst, root[root_idx:end], basename.(files));
-                ignore_hidden, hide_identifier
-            ) # TODO pass exists flag with results from statscan
+            upload_file.(sftp, joinpath.(root, files), joinpath.(sftp, cwd, files),
+                ignore_hidden, hide_identifier)
         end
     else
         # Handle possible existing path objects
@@ -84,23 +88,40 @@ function upload(
                 throw(Base.IOError("cannot overwrite existing file $(basename(src))", -1))
         end
         # Upload file
-        upload_file(sftp, src, file; ignore_hidden, hide_identifier)
+        upload_file(sftp, src, file, ignore_hidden, hide_identifier)
     end
+    return src
 end
 
 
 """
     download(
-        sftp::SFTP.Client,
-        filename::AbstractString,
-        output::String = ""
+        sftp::Client,
+        src::AbstractString = ".",
+        dst::String = "";
+        merge::Bool = false,
+        force::Bool = false,
+        ignore_hidden::Bool = false,
+        hide_identifier::Union{Char,AbstractString} = '.'
     ) -> String
 
-Download a file from the `sftp` server. The specified `filename` may include a path
-on the remote server, which is ignored on the local system.
+Download `src` from the `sftp` server to `dst` on the local system; `src` can be a file or folder.
+Folders are downloaded recursively. `dst` must be an existing folder on the local system,
+otherwise an `IOError` is thrown. `src` may include an absolute or relative path
+on the `sftp` server, which is ignored on the local system. `dst` can be an absolute
+or relative path on the local system. The function returns the absolute path of `src`
+on the `sftp` server.
 
-The file can be downloaded and saved directly to a variable or it can be saved to
-a file in the `output` directory.
+Alternatively, `dst` can be omitted for files on the `sftp` server. In this case,
+the file content is directly saved to a variable, see example below. This option does
+not work for folders.
+
+If `merge` is set to `true`, the content of `src` is merged into any existing `dst`
+folder. If `force` is set to `true`, any existing path at `dst` is overwritten without warning.
+If both flags are set, `download` first tries to mere folders and only overwrites files.
+If `ignore_hidden` is set to `true`, hidden files are omitted in the download. The start sequence
+of `String` or `Char`, with which a hidden file starts, can be specified by the `hide_identifier`.
+By default it is assumed that hidden files start with a dot (`.`).
 
 # Example
 
@@ -112,52 +133,85 @@ download.(sftp, files, download_dir)
 ````
 
 You can also use it like this:
+
 ```julia
 df=DataFrame(CSV.File(download(sftp, "/mydir/test.csv")))
 ```
 """
 function Base.download(
     sftp::Client,
-    filename::AbstractString,
-    output::String = ""
+    src::AbstractString = ".",
+    dst::String = "";
+    merge::Bool = false,
+    force::Bool = false,
+    ignore_hidden::Bool = false,
+    hide_identifier::Union{Char,AbstractString} = '.'
 )::String
-    # Define output
-    output = isempty(output) ? tempname() : normpath(output, basename(filename))
-    # Error handling for existing folders/files
-    if isdir(output)
-        @error "the specified download file is a directory and cannot be overwritten"
-        return output
-    elseif isfile(output)
-        @warn "$output already exists; overwrite (y/n)?"
-        confirm = readline()
-        while true
-            if startswith(lowercase(confirm), "y")
-                break
-            elseif startswith(lowercase(confirm), "n")
-                return output
-            end
-        end
+    # Check remote and local path
+    base = splitdir(sftp, src)[2]
+    dst = if isempty(dst)
+        isfile(sftp, src) || throw(Base.IOError("$src must be a file", -9))
+        tempname()
+    else
+        dst = realpath(dst)
+        normpath(dst, base)
     end
-
-    # Download file
-    # TODO handle folders
-    uri = change_uripath(sftp.uri, filename, trailing_slash=false)
-    Downloads.download(string(uri), output; sftp.downloader)
-    return output
+    # Check for hidden src
+    ignore_hidden && startswith(basename(src), hide_identifier) && return src
+    #* Download src to dst
+    if isdir(sftp, src)
+        # Create base folder
+        src = joinpath(sftp, src, "").path
+        root_idx = length(src) + 1
+        isempty(base) || mkfolder(dst, merge, force)
+        # Download folder content recursively
+        for (root, dirs, files) in walkdir(sftp, src; ignore_hidden, hide_identifier)
+            cwd = normpath(dst, root[root_idx:end])
+            # Sync folder structure
+            ignore_hidden && filter!(!startswith(hide_identifier), dirs)
+            mkfolder.(joinpath.(cwd, dirs), merge, force)
+            # Download files
+            pathobjects = force ? readdir(cwd) : []
+            force && rm.(joinpath.(cwd, intersect(pathobjects, files)),
+                recursive = true, force = true)
+            @show pathobjects, files
+            download_file.(sftp, joinpath.(sftp, root, files) .|> pwd, joinpath.(cwd, files),
+                ignore_hidden, hide_identifier)
+        end
+        return src
+    else
+        # Handle possible existing path objects
+        base = basename(sftp, src)
+        if force
+            rm(dst, force = true)
+        else
+            base in splitdir(dst)[1] |> readdir && throw(Base.IOError("cannot overwrite existing path $(basename(src))", -1))
+        end
+        # Download file
+        download_file(sftp, joinpath.(sftp, src).path, dst, ignore_hidden, hide_identifier)
+    end
 end
 
 
 ## Helper functions for server exchange
 
 """
-    mkfolder(sftp::SFTP.Client, path::AbstractString, merge::Bool, force::Bool) -> String
+    mkfolder([sftp::SFTP.Client, ]path::AbstractString, merge::Bool, force::Bool) -> String
 
-Create the given `path` on the `sftp` server. Only throw an error for existing
+Create the given `path` either on the `sftp` server or the local system, depending on
+whether the `sftp` client was passed as first argument. Only throw an error for existing
 paths, if `merge` and `recursive` are set to `false`.
 """
+function mkfolder end
+
 function mkfolder(sftp::Client, path::AbstractString, merge::Bool, force::Bool)::String
-    !merge && force && rm(sftp, path; recursive = true, force)
+    !merge && force && rm(sftp, path; recursive = true, force = true)
     merge ? mkpath(sftp, path) : mkdir(sftp, path)
+end
+
+function mkfolder(path::AbstractString, merge::Bool, force::Bool)::String
+    !merge && force && rm(path; recursive = true, force = true)
+    merge ? mkpath(path) : mkdir(path)
 end
 
 
@@ -177,17 +231,47 @@ or `Char` of hidden files can be changed with `hide_identifier`.
 function upload_file(
     sftp::Client,
     src::AbstractString,
-    dst::URI;
-    ignore_hidden::Bool=false,
-    hide_identifier::Union{Char,AbstractString}='.'
+    dst::URI,
+    ignore_hidden::Bool,
+    hide_identifier::Union{Char,AbstractString}
 )::Nothing
     # Ignore hidden files
     ignore_hidden && startswith(basename(src), hide_identifier) && return
     # Open local file and upload to server
+    ispath(sftp, dst.path) && throw(Base.IOError("cannot overwrite existing path '$dst')", -1))
     open(src, "r") do f
         Downloads.request(string(dst), input=f; downloader=sftp.downloader)
     end
     return
+end
+
+
+"""
+    download_file(
+        sftp::Client,
+        src::AbstractString,
+        dst::AbstractString,
+        ignore_hidden::Bool = true,
+        hide_identifier::Union{Char,AbstractString}='.'
+    ) -> String
+
+Download `src` from the ` URI on the `sftp` server to `dst` on the local system.
+Hidden files can be ignored for download by setting `ignore_hidden` to `true`.
+The start sequence of `String` or `Char` of hidden files can be changed with `hide_identifier`.
+"""
+function download_file(
+    sftp::Client,
+    src::AbstractString,
+    dst::AbstractString,
+    ignore_hidden::Bool,
+    hide_identifier::Union{Char,AbstractString}
+)::String
+    # Ignore hidden files
+    ignore_hidden && startswith(basename(src), hide_identifier) && return ""
+    # Open local file and upload to server
+    ispath(dst) && throw(Base.IOError("cannot overwrite existing path '$dst')", -1))
+    uri = change_uripath(sftp.uri, src, trailing_slash=false)
+    Downloads.download(string(uri), dst; sftp.downloader)
 end
 
 
@@ -383,7 +467,7 @@ Base.filemode(sftp::Client, path::AbstractString = ".")::UInt = stat(sftp, path)
 Return `true`, if a `path` exists on the `sftp` server, i.e. is a file, folder or link.
 Otherwise, reture `false`.
 """
-ispath(sftp::Client, path::AbstractString = ".")::Bool = try
+Base.ispath(sftp::Client, path::AbstractString = ".")::Bool = try
   stat(sftp, path)
   true
 catch
@@ -715,7 +799,9 @@ function Base.walkdir(
     topdown::Bool=true,
     follow_symlinks::Bool=false,
     skip_restricted_access::Bool=true,
-    sort::Bool=true
+    sort::Bool=true,
+    ignore_hidden::Bool=false,
+    hide_identifier::Union{AbstractString,Char}='.'
 )::Channel{Tuple{String,Vector{String},Vector{String}}}
     function _walkdir!(chnl, root)::Nothing
         # Init
@@ -732,6 +818,10 @@ function Base.walkdir(
             else
                 rethrow(err)
             end
+        end
+        if ignore_hidden
+            hidden = findall(startswith(hide_identifier), [s.desc for s in scans])
+            deleteat!(scans, hidden)
         end
         # Loop over stats of current folder
         for statstruct in scans
