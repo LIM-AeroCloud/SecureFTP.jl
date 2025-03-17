@@ -185,10 +185,11 @@ end
 
 
 """
-    change_uripath(uri::URI, path::AbstractString; isfile::Bool=false) -> URI
+    change_uripath(uri::URI, path::AbstractString; trailing_slash::Union{Client,Bool,Nothing}=nothing) -> URI
 
 Return an updated `uri` struct with the given `path`.
-Set `isfile` to `true`, if the path is a file to omit the trailing slash.
+A `trailing_slash` is added or omitted, when `true`/`false`, or added for directories if a `Client`
+is passed with`trailing_slash`. If `trailing_slash` is `nothing`, the `uri` is left unchanged.
 """
 function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Client,Bool,Nothing}=nothing)::URI
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
@@ -200,13 +201,14 @@ function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union
     else
         false
     end
-    url = if dir || trailing_slash === true # ℹ `=== true` is needed to distinguish from nothing
+    url = if dir || istrue(trailing_slash)
+        # Add trailing slash for directories and when flag is true
         joinpath(url, "")
-    elseif isnothing(trailing_slash) || !endswith(url.path, "/")
-        url
-    else
+    elseif isfalse(trailing_slash)
+        # Remove trailing slash when flag is false
         joinpath(uri, url.path[1:end-1])
     end
+    # ℹ Leave url unchanged, if trailing_slash is nothing or already has no trailing slash
     @debug "URI path" url.path
     URIs.resolvereference(uri, URIs.escapepath(url.path))
 end
@@ -332,3 +334,22 @@ function reset_easy_hook(sftp::Client)::Nothing
     end
     return
 end
+
+
+## General helper functions
+
+
+"""
+    istrue(x)::Bool
+
+Return `true` if x is a `Bool` and `true`, otherwise `false`.
+"""
+istrue(x)::Bool = x === true
+
+
+"""
+    isfalse(x)::Bool
+
+Return `true` if x is a `Bool` and `false`, otherwise `false`.
+"""
+isfalse(x)::Bool = x === false
