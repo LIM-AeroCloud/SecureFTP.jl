@@ -121,7 +121,7 @@ function Client(
 )::Client
     # Setup Downloader and URI
     downloader = Downloader()
-    uri = set_url(url)
+    uri = set_uri(url)
     # Instantiate and post-process easy hooks
     sftp = Client(downloader, uri, username, "", disable_verify_peer, disable_verify_host, verbose, public_key_file, private_key_file)
     reset_easy_hook(sftp)
@@ -141,7 +141,7 @@ function Client(
 )::Client
     # Setup Downloader and URI
     downloader = Downloader()
-    uri = set_url(url)
+    uri = set_uri(url)
     # Update known_hosts, if selected
     if !isempty(password) && create_known_hosts_entry
         check_and_create_fingerprint(uri.host)
@@ -172,45 +172,54 @@ Base.broadcastable(sftp::Client) = Ref(sftp)
 
 ## Helper functions for processing of server paths
 
-#¡ Trailing slashes needed for StatStruct and change_uripath!
 """
-    set_url(url::URI) -> URI
+    set_uri(uri::URI) -> URI
 
-Ensure URI path with trailing slash.
+Return a URI struct from the given `uri`.
 """
-function set_url(url::AbstractString)::URI
-    uri = URI(url)
+function set_uri(uri::AbstractString)::URI
+    uri = URI(uri)
     change_uripath(uri, uri.path)
 end
 
 
 """
-    change_uripath(uri::URI, path::AbstractString; trailing_slash::Union{Client,Bool,Nothing}=nothing) -> URI
+    change_uripath(sftp::Client, path::AbstractString...) -> URI
+    change_uripath(uri::URI, path::AbstractString; trailing_slash::Union{Bool,Nothing}=nothing) -> URI
 
 Return an updated `uri` struct with the given `path`.
-A `trailing_slash` is added or omitted, when `true`/`false`, or added for directories if a `Client`
-is passed with`trailing_slash`. If `trailing_slash` is `nothing`, the `uri` is left unchanged.
+When an `sftp` client is passed, a trailing slash will be added for directories and
+omitted otherwise. If a `uri` struct is passed, a `trailing_slash` is added or omitted,
+when the flag is `true`/`false`, or left unchanged, if `trailing_slash` is `nothing`.
+
+.. warning::
+    Determining directories for the method using the `sftp` client can be slow for large folders
+    and is not recommended unless absolutely needed.
 """
-function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Client,Bool,Nothing}=nothing)::URI
+function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing)::URI
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    url = joinpath(uri, string.(path)...)
-    # Add trailing slashes to directories, remove trailing slashes from files
-    dir = if trailing_slash isa Client
-        stats = stat(trailing_slash, url.path)
-        isdir(stats)
-    else
-        false
-    end
-    url = if dir || istrue(trailing_slash)
+    uri = joinpath(uri, string.(path)...)
+    uri = if istrue(trailing_slash)
         # Add trailing slash for directories and when flag is true
-        joinpath(url, "")
-    elseif isfalse(trailing_slash)
+        joinpath(uri, "")
+    elseif isfalse(trailing_slash) && endswith(uri.path, "/")
         # Remove trailing slash when flag is false
-        joinpath(uri, url.path[1:end-1])
+        joinpath(uri, uri.path[1:end-1])
+    else # leave unchanged, when trailing_slash is nothing
+        uri
     end
-    # ℹ Leave url unchanged, if trailing_slash is nothing or already has no trailing slash
-    @debug "URI path" url.path
-    URIs.resolvereference(uri, URIs.escapepath(url.path))
+    @debug "URI path" uri.path
+    URIs.resolvereference(uri, URIs.escapepath(uri.path))
+end
+
+# ¡ Method currently not used, probably slow due to statscan !
+function change_uripath(sftp::Client, path::AbstractString...)::URI
+    # Set uri path with trailing slash and check if it is a directory
+    uri = joinpath(sftp.uri, string.(path)..., "")
+    # Remove trailing slash for non-directories
+    # ℹ potentially slow operation
+    isdir(sftp, uri.path) && endswith(uri.path, "/") || (uri = URIs.resolvereference(uri, URIs.escapepath(uri.path[1:end-1])))
+    return uri
 end
 
 

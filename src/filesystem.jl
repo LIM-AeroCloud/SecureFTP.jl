@@ -142,7 +142,7 @@ function Base.download(
         isfile(sftp, src) || throw(Base.IOError("$src must be a file", -9))
         # Download file from server
         out = tempname()
-        Downloads.download(string(joinpath(sftp, src, trailing_slash = false)),
+        Downloads.download(string(change_uripath(sftp.uri, src, trailing_slash = false)),
             out; sftp.downloader)
         return out
     else
@@ -164,7 +164,7 @@ function Base.download(
             conflicts = readdir(cwd)
             mkfolder(cwd, dirs, intersect(dirs, conflicts), merge, force)
             # Download files
-            download_file(sftp, joinpath.(sftp, root, trailing_slash = true), cwd,
+            download_file(sftp, change_uripath.(sftp.uri, root, trailing_slash = true), cwd,
                 files, intersect(files, conflicts), force)
         end
     else
@@ -358,7 +358,7 @@ function download_file(
     #* Loop over files
     for file in files
         # Download file from server
-        Downloads.download(string(joinpath(src, file, trailing_slash = false)),
+        Downloads.download(string(change_uripath(src, file, trailing_slash = false)),
             joinpath(dst, file); sftp.downloader)
     end
     return
@@ -978,15 +978,10 @@ an `URI` with the updated path.
 !!! note
     The `uri` field of the `sftp` client remains unaffected by joinpath.
     Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` client.
-
-# kwargs
-
-- `trailing_slash::Bool=false`: Add a trailing slash to the path when `true` or for directories
-  when `nothing`. Omit when `false` or otherwise.
 """
 Base.joinpath
-Base.joinpath(sftp::Client, path::AbstractString...; kwargs...)::URI = joinpath(sftp.uri, path...; kwargs...)
-Base.joinpath(uri::URI, path::AbstractString...; kwargs...)::URI = change_uripath(uri, path...; kwargs...)
+Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
+Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path...)
 
 
 """
