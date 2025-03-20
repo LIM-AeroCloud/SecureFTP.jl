@@ -11,5 +11,4 @@ include("setup.jl")
     @test dirs == ["example"]
     @test isfile("readme.txt")
     @test walkdirFiles[3] == walkdirResults[3]
-
 end

@@ -13,9 +13,9 @@ include("client.jl")
 include("filesystem.jl")
 
 @static if VERSION ≥ v"1.11"
-    eval(Meta.parse("public Client, SFTPStatStruct, download, stat, filemode, islink, isdir, isfile, pwd, cd, mv, rm, mkdir, walkdir, readdir, splitdir"))
+    eval(Meta.parse("public Client, StatStruct, download, stat, filemode, ispath, isdir, isfile, islink, pwd, cd, mv, rm, mkdir, mkpath, readdir, walkdir, joinpath, splitdir, basename"))
 end
 
-export PathNotFoundError, upload, rmdir, statscan
+export upload, statscan
 
 end # module SFTP

@@ -86,12 +86,24 @@ The `stats` are of the format:
 """
 struct StatStruct
     desc::String
+    root::String
     mode::UInt
     nlink::Int
     uid::String
     gid::String
     size::Int64
     mtime::Float64
+
+    function StatStruct(desc::String, root::String, mode::UInt, nlink::Int, uid::String, gid::String, size::Int64, mtime::Float64)
+        if mode & 0xF000 == 0xa000
+            linkparts = split(desc, " -> ")
+            if length(linkparts) == 2
+                desc = linkparts[1]
+                root *= " -> " * linkparts[2]
+            end
+        end
+        new(desc, root, mode, nlink, uid, gid, size, mtime)
+    end
 end
 
 
@@ -109,7 +121,7 @@ function Client(
 )::Client
     # Setup Downloader and URI
     downloader = Downloader()
-    uri = set_url(url)
+    uri = set_uri(url)
     # Instantiate and post-process easy hooks
     sftp = Client(downloader, uri, username, "", disable_verify_peer, disable_verify_host, verbose, public_key_file, private_key_file)
     reset_easy_hook(sftp)
@@ -129,7 +141,7 @@ function Client(
 )::Client
     # Setup Downloader and URI
     downloader = Downloader()
-    uri = set_url(url)
+    uri = set_uri(url)
     # Update known_hosts, if selected
     if !isempty(password) && create_known_hosts_entry
         check_and_create_fingerprint(uri.host)
@@ -142,77 +154,79 @@ end
 
 
 # See SFTP.StatStruct struct for help/docstrings
-function StatStruct(stats::AbstractString)::StatStruct
-    stats = split.(stats, limit = 9)
-    StatStruct(stats[9], parse_mode(stats[1]), parse(Int64, stats[2]), stats[3], stats[4],
+StatStruct(stats::String, root::AbstractString)::StatStruct = StatStruct(stats, string(root))
+
+function StatStruct(stats::String, root::String)::StatStruct
+    stats = split(stats, limit = 9) .|> string
+    StatStruct((stats[9]), root, parse_mode(stats[1]), parse(Int64, stats[2]), stats[3], stats[4],
         parse(Int64, stats[5]), parse_date(stats[6], stats[7], stats[8]))
 end
 
 
 ## Overload Base functions
 
-Base.show(io::IO, sftp::SFTP.Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
+Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
 
 Base.broadcastable(sftp::Client) = Ref(sftp)
 
 
-## Exception handling
-
-"""
-    PathNotFoundError(path)
-
-The `path` (file or folder) was not found.
-"""
-struct PathNotFoundError <: Exception
-  path::String
-end
-
-function Base.showerror(io::IO, e::PathNotFoundError)
-  println(io, "PathNotFoundError: directory or file not found\n$(e.path)")
-end
-
-
-"""
-    linkerror(link::String) -> Nothing
-
-Show an error for an anticipated `link` format.
-"""
-linkerror(link::String)::Nothing = @error "link '$link' did not have anticipated format; link shown as file in walkdir iterator"
-
-
 ## Helper functions for processing of server paths
 
-#¡ Trailing slashes needed for StatStruct and change_uripath!
 """
-    set_url(url::URI) -> URI
+    set_uri(uri::URI) -> URI
 
-Ensure URI path with trailing slash.
+Return a URI struct from the given `uri`.
 """
-function set_url(url::AbstractString)::URI
-    uri = URI(url)
+function set_uri(uri::AbstractString)::URI
+    uri = URI(uri)
     change_uripath(uri, uri.path)
 end
 
 
 """
-    change_uripath(uri::URI, path::AbstractString; isfile::Bool=false) -> URI
+    change_uripath(sftp::Client, path::AbstractString...) -> URI
+    change_uripath(uri::URI, path::AbstractString; trailing_slash::Union{Bool,Nothing}=nothing) -> URI
 
 Return an updated `uri` struct with the given `path`.
-Set `isfile` to `true`, if the path is a file to omit the trailing slash.
+When an `sftp` client is passed, a trailing slash will be added for directories and
+omitted otherwise. If a `uri` struct is passed, a `trailing_slash` is added or omitted,
+when the flag is `true`/`false`, or left unchanged, if `trailing_slash` is `nothing`.
+
+.. warning::
+    Determining directories for the method using the `sftp` client can be slow for large folders
+    and is not recommended unless absolutely needed.
 """
-function change_uripath(uri::URI, path::AbstractString...; isfile::Bool=false)::URI
+function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing)::URI
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    url = joinpath(uri, string.(path...))
-    isfile || (url = joinpath(url, ""))
-    @debug "URI path" url.path
-    URIs.resolvereference(uri, URIs.escapepath(url.path))
+    uri = joinpath(uri, string.(path)...)
+    uri = if istrue(trailing_slash)
+        # Add trailing slash for directories and when flag is true
+        joinpath(uri, "")
+    elseif isfalse(trailing_slash) && endswith(uri.path, "/")
+        # Remove trailing slash when flag is false
+        joinpath(uri, uri.path[1:end-1])
+    else # leave unchanged, when trailing_slash is nothing
+        uri
+    end
+    @debug "URI path" uri.path
+    URIs.resolvereference(uri, URIs.escapepath(uri.path))
+end
+
+# ¡ Method currently not used, probably slow due to statscan !
+function change_uripath(sftp::Client, path::AbstractString...)::URI
+    # Set uri path with trailing slash and check if it is a directory
+    uri = joinpath(sftp.uri, string.(path)..., "")
+    # Remove trailing slash for non-directories
+    # ℹ potentially slow operation
+    isdir(sftp, uri.path) && endswith(uri.path, "/") || (uri = URIs.resolvereference(uri, URIs.escapepath(uri.path[1:end-1])))
+    return uri
 end
 
 
 """
     findbase(stats::Vector{SFTP.StatStruct}, base::AbstractString, path::AbstractString) -> Int
 
-Return the index of `base` in `stats` or throw and `PathNotFoundError`, if `base` is not found.
+Return the index of `base` in `stats` or throw an `IOError`, if `base` is not found.
 """
 function findbase(stats::Vector{StatStruct}, base::AbstractString, path::AbstractString)::Int
     # Get path names and find base in it
@@ -220,9 +234,7 @@ function findbase(stats::Vector{StatStruct}, base::AbstractString, path::Abstrac
     i = findfirst(isequal(base), pathnames)
     # Exception handling, if path is not found
     if isnothing(i)
-        @warn "base not found in path; attempting to recover with similar basename"
-        i = findall(startswith(base), pathnames)
-        i = length(i) == 1 ? i[1] : throw(PathNotFoundError(path))
+        throw(Base.IOError("$path does not exist", -1))
     end
     # Return index of base in stats
     return i
@@ -331,3 +343,22 @@ function reset_easy_hook(sftp::Client)::Nothing
     end
     return
 end
+
+
+## General helper functions
+
+
+"""
+    istrue(x)::Bool
+
+Return `true` if x is a `Bool` and `true`, otherwise `false`.
+"""
+istrue(x)::Bool = x === true
+
+
+"""
+    isfalse(x)::Bool
+
+Return `true` if x is a `Bool` and `false`, otherwise `false`.
+"""
+isfalse(x)::Bool = x === false
