@@ -99,7 +99,9 @@ struct StatStruct
             linkparts = split(desc, " -> ")
             if length(linkparts) == 2
                 desc = linkparts[1]
-                root *= " -> " * linkparts[2]
+                path = split(linkparts[2], "/")
+                path = join(path[1:end - 1], "/")
+                root *= " -> " * path
             end
         end
         new(desc, root, mode, nlink, uid, gid, size, mtime)
@@ -154,7 +156,7 @@ end
 
 
 # See SFTP.StatStruct struct for help/docstrings
-StatStruct(stats::String, root::AbstractString)::StatStruct = StatStruct(stats, string(root))
+StatStruct(stats::AbstractString, root::AbstractString)::StatStruct = StatStruct(string(stats), string(root))
 
 function StatStruct(stats::String, root::String)::StatStruct
     stats = split(stats, limit = 9) .|> string

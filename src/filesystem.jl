@@ -997,7 +997,7 @@ Base.splitdir
 function Base.splitdir(uri::URI, path::AbstractString=".")::Tuple{URI,String}
     # Join the path with the sftp.uri, ensure no trailing slashes in the path
     # ℹ First enforce trailing slashes with joinpath(..., ""), then remove the slash with path[1:end-1]
-    path = (pwd∘joinpath)(uri, string(path), "")[1:end-1]
+    path = joinpath(uri, string(path), "").path[1:end-1]
     # ¡ workaround for URIs joinpath
     startswith(path, "//") && (path = path[2:end])
     # Split directory from base name

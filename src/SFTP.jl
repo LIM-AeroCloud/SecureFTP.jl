@@ -16,6 +16,6 @@ include("filesystem.jl")
     eval(Meta.parse("public Client, StatStruct, download, stat, filemode, ispath, isdir, isfile, islink, pwd, cd, mv, rm, mkdir, mkpath, readdir, walkdir, joinpath, splitdir, basename"))
 end
 
-export upload, statscan
+export upload, statscan, URI
 
 end # module SFTP
