@@ -10,6 +10,8 @@ import URIs: URI
 import Logging
 
 include("client.jl")
+include("fileexchange.jl")
+include("filestats.jl")
 include("filesystem.jl")
 
 @static if VERSION ≥ v"1.11"

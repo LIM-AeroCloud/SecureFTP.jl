@@ -1,22 +1,29 @@
+# Connect to example folder on server
 sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
 cd(sftp, "/pub/example")
 
-stats = statscan(sftp)
+#=
+sftp_uri = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+@test sftp.uri.path == sftp_uri.uri.path
+cd(sftp, "foo")
+=#
 
+# Get contents of example folder
+stats = statscan(sftp)
 files = readdir(sftp)
 
+# TODO move to tests file for download and filesystem functions
 download.(sftp, files, tempdir(), force = true)
+download.(sftp, "readme.txt", ".", force = true)
 
 cd(sftp, "../")
 dirs = readdir(sftp)
-
 cd(sftp, "..")
 
-download.(sftp, "readme.txt", ".", force = true)
 
-walkdirRoot, walkdirDirs, walkdirFiles = walkdir(sftp, ".")
+wd = collect(walkdir(sftp, "."))
 
-actualStructs = [
+target_structs = [
     SFTP.StatStruct("KeyGenerator.png", "/pub/example/", 0x0000000000008180, 1, "demo", "users", 36672, 1.1742624e9)
     SFTP.StatStruct("KeyGeneratorSmall.png", "/pub/example/", 0x0000000000008180, 1, "demo", "users", 24029, 1.1742624e9)
     SFTP.StatStruct("ResumableTransfer.png", "/pub/example/", 0x0000000000008180, 1, "demo", "users", 11546, 1.1742624e9)
@@ -35,7 +42,7 @@ actualStructs = [
     SFTP.StatStruct("winceclientSmall.png", "/pub/example/", 0x0000000000008180, 1, "demo", "users", 6146, 1.1742624e9)
  ]
 
- walkdirResults = (
+ wd_target = (
     "/pub/example/", String[],
     ["KeyGenerator.png",
     "KeyGeneratorSmall.png",

@@ -1,16 +1,17 @@
 using SFTP
 using Test
+using CSV
 
 include("setup.jl")
 
 @testset "Connect Test" begin
     @show tempdir()
-    @test files == walkdirResults[3]
-    @test stats[1] == actualStructs[1]
+    @test files == wd_target[3]
+    @test stats[1] == target_structs[1]
     @test isfile(joinpath(tempdir(), "KeyGenerator.png"))
     @test dirs == ["example"]
     @test isfile("readme.txt")
-    @test walkdirFiles[3] == walkdirResults[3]
+    @test wd[3][3] == wd_target[3]
 end
 
 #* Test everything possible about structs that is not already covered
@@ -28,8 +29,7 @@ end
 
 #* Test internal URI changes
 uri = URI("sftp://test.com/root/path")
-sftp == SFTP.Client("sftp://test.rebex.net", "demo", "password")
-sftp
+cd(sftp, "/pub/example")
 @testset "path changes" begin
     @testset "URI" begin
         @test SFTP.change_uripath(uri, "newpath") == URI("sftp://test.com/root/path/newpath")
@@ -49,7 +49,28 @@ sftp
         @test SFTP.change_uripath(sftp, "/pub", "example") == URI("sftp://test.rebex.net/pub/example/")
         @test SFTP.change_uripath(sftp, "/pub/example") == URI("sftp://test.rebex.net/pub/example/")
         @test SFTP.change_uripath(sftp, "/pub/example", "KeyGenerator.png") == URI("sftp://test.rebex.net/pub/example/KeyGenerator.png")
+        @test SFTP.change_uripath(sftp, "..") == URI("sftp://test.rebex.net/pub/")
         @test_throws Base.IOError SFTP.change_uripath(sftp, "/foo")
     end
-    @test_throws Base.IOError SFTP.findbase(actualStructs, "foo", "bar")
+    @test_throws Base.IOError SFTP.findbase(target_structs, "foo", "bar")
+end
+
+#* Test file exchange
+f(path::AbstractString)::Vector{String} = readlines(path)
+@testset "file exchange" begin
+    @test download(f, sftp, "readme.txt") == [
+        "Welcome to test.rebex.net!",
+        "",
+        "You are connected to an FTP or SFTP server used for testing purposes",
+        "by Rebex FTP/SSL or Rebex SFTP sample code. Only read access is allowed.",
+        "",
+        "For information about Rebex FTP/SSL, Rebex SFTP and other Rebex libraries",
+        "for .NET, please visit our website at https://www.rebex.net/",
+        "",
+        "For feedback and support, contact support@rebex.net",
+        "",
+        "Thanks!"
+    ]
+    @test_throws Base.IOError download(f, sftp, "foo.txt")
+    @test_throws Base.IOError download(f, sftp, "pub")
 end

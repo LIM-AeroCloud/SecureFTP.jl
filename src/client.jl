@@ -172,6 +172,90 @@ Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.us
 Base.broadcastable(sftp::Client) = Ref(sftp)
 
 
+#* Base function overloads for comparision and sorting of SFTPStatStructs
+
+"""
+    isequal(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+
+Compares equality between the description (`desc` fields) of two `SFTP.StatStruct` objects
+and returns `true` for equality, otherwise `false`.
+"""
+Base.isequal(a::StatStruct, b::StatStruct)::Bool =
+    isequal(a.desc, b.desc) && isequal(a.size, b.size) && isequal(a.mtime, b.mtime)
+
+
+"""
+    isless(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+
+Compares the descriptions (`desc` fields) of two `SFTP.StatStruct` objects
+and returns `true`, if `a` is lower than `b`, otherwise `false`.
+"""
+Base.isless(a::StatStruct, b::StatStruct)::Bool = a.desc < b.desc
+
+
+## Helper functions for path stats
+
+"""
+    parse_date(month::AbstractString, day::AbstractString, year_or_time::AbstractString) -> Float64
+
+From the abbreviated `month` name, the `day` and the `year_or_time` all given as `String`,
+return a unix timestamp.
+"""
+function parse_date(month::AbstractString, day::AbstractString, year_or_time::AbstractString)::Float64
+    # Process date parts
+    yearStr::String = occursin(":", year_or_time) ? string(Dates.year(Dates.today())) : year_or_time
+    timeStr::String = occursin(":", year_or_time) ? year_or_time : "00:00"
+    # Assemble datetime string
+    datetime = Dates.DateTime("$month $day $yearStr $timeStr", Dates.dateformat"u d yyyy H:M ")
+    # Return unix timestamp
+    return Dates.datetime2unix(datetime)
+end
+
+
+"""
+    parse_mode(s::AbstractString) -> UInt
+
+From the `AbstractString` `s`, parse the file mode octal number and return as `UInt`.
+"""
+function parse_mode(s::AbstractString)::UInt
+    # Error handling
+    if length(s) != 10
+        throw(ArgumentError("`s` should be an `AbstractString` of length `10`"))
+    end
+    # Determine file system object type (dir or file)
+    dir_char = s[1]
+    dir = if dir_char == 'd'
+        0x4000
+    elseif dir_char == 'l'
+        0xa000
+    else
+        0x8000
+    end
+    @debug "mode" dir_char
+
+    # Determine owner
+    owner = str2number(s[2:4])
+    group = str2number(s[5:7])
+    anyone = str2number(s[8:10])
+
+    # Return mode as UInt
+    return dir + owner * 8^2 + group * 8^1 + anyone * 8^0
+end
+
+
+"""
+    str2number(s::AbstractString) -> Int64
+
+Parse the file owner symbols in the string `s` to the corresponding ownership number.
+"""
+function str2number(s::AbstractString)::Int64
+    b1 = (s[1] != '-') ?  4 : 0
+    b2 = (s[2] != '-') ?  2 : 0
+    b3 = (s[3] != '-') ?  1 : 0
+    return b1+b2+b3
+end
+
+
 ## Helper functions for processing of server paths
 
 """
