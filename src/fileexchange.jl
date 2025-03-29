@@ -125,7 +125,7 @@ Alternatively:
 
 ```julia
 sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
-donwload(sftp)
+donwload(sftp) # downloads current folder on server to current directory on local system
 ```
 """
 function Base.download(
@@ -138,7 +138,7 @@ function Base.download(
     hide_identifier::Union{Char,AbstractString} = '.'
 )::String
     #* Check remote and local path
-    base = splitdir(sftp, src)[2]
+    base = basename(sftp, src)
     isdir(dst) || throw(Base.IOError("$dst must be an existing directory", 1))
     dst = realpath(dst)
     # Optional check, if src is hidden
@@ -147,8 +147,12 @@ function Base.download(
     if isdir(sftp, src)
         # Create base folder
         src = joinpath(sftp, src, "").path
+        dst = joinpath(dst, base)
         root_idx = length(src) + 1
-        isempty(base) || mkpath(dst) # ℹ sync folder, don't create folder for root
+        if !isempty(base)
+            # ℹ sync folder, don't create a folder for root
+            merge ? mkpath(dst) : mkdir(dst)
+        end
         # Download folder content recursively
         for (root, dirs, files) in walkdir(sftp, src; ignore_hidden, hide_identifier)
             # Sync folder structure
@@ -156,12 +160,14 @@ function Base.download(
             conflicts = readdir(cwd)
             mkfolder(cwd, dirs, intersect(dirs, conflicts), merge, force)
             # Download files
-            download_file(sftp, change_uripath.(sftp.uri, root, trailing_slash = true), cwd,
+            download_file(sftp, change_uripath(sftp.uri, root, trailing_slash = true), cwd,
                 files, intersect(files, conflicts), force)
         end
     else
         # Download file
         download_file(sftp, src, dst, force)
+        # Update dst for return value
+        dst = joinpath(dst, basename(src))
     end
     return dst
 end

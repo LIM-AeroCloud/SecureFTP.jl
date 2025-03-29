@@ -5,12 +5,9 @@ using CSV
 include("setup.jl")
 
 @testset "Connect Test" begin
-    @show tempdir()
     @test files == wd_target[3]
     @test stats[1] == target_structs[1]
-    @test isfile(joinpath(tempdir(), "KeyGenerator.png"))
     @test dirs == ["example"]
-    @test isfile("readme.txt")
     @test wd[3][3] == wd_target[3]
 end
 
@@ -57,20 +54,31 @@ end
 
 #* Test file exchange
 f(path::AbstractString)::Vector{String} = readlines(path)
-@testset "file exchange" begin
-    @test download(f, sftp, "readme.txt") == [
-        "Welcome to test.rebex.net!",
-        "",
-        "You are connected to an FTP or SFTP server used for testing purposes",
-        "by Rebex FTP/SSL or Rebex SFTP sample code. Only read access is allowed.",
-        "",
-        "For information about Rebex FTP/SSL, Rebex SFTP and other Rebex libraries",
-        "for .NET, please visit our website at https://www.rebex.net/",
-        "",
-        "For feedback and support, contact support@rebex.net",
-        "",
-        "Thanks!"
-    ]
-    @test_throws Base.IOError download(f, sftp, "foo.txt")
-    @test_throws Base.IOError download(f, sftp, "pub")
+@testset "download" begin
+    @testset "to dir" begin
+        mktempdir() do path
+            path = realpath(path)
+            @test download.(sftp, files, path) == joinpath.(path, files)
+            @test download(sftp, "readme.txt", path, force = true) == joinpath(path, "readme.txt")
+            @test download(sftp, "readme.txt", path, force = false) == joinpath(path, "readme.txt")
+            @test_throws Base.IOError download(sftp, "readme.txt", path)
+            dir = mkdir(joinpath(path, "example")) # create example folder to test merge flag
+            @test_throws Base.IOError download(sftp, ".", path) == joinpath(path, "example")
+            @test download(sftp, ".", path, merge=true) == joinpath(path, "example")
+            @test isfile(joinpath(path, "readme.txt"))
+            @test isfile(joinpath(path, "KeyGenerator.png"))
+            rm.(readdir(path, join=true), recursive=true, force=true)
+            @test download(sftp, ".", path, ignore_hidden=true, hide_identifier='p') == joinpath(path, "example")
+            @test readdir(joinpath(path, "example")) == filter(!startswith("p"), files)
+        end
+    end
+    @testset "to variable" begin
+        @test download(f, sftp, "readme.txt") == readme_content
+        @test download(f, sftp, "readme.txt") == readme_content # test repeated loading (no force needed)
+        @test_throws Base.IOError download(f, sftp, "foo.txt")
+        @test_throws Base.IOError download(f, sftp, "pub")
+    end
 end
+
+## Clean-up
+rm("readme.txt", force=true)

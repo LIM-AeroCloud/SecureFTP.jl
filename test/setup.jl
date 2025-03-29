@@ -8,13 +8,11 @@ sftp_uri = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 cd(sftp, "foo")
 =#
 
+# TODO move to runtests
 # Get contents of example folder
 stats = statscan(sftp)
 files = readdir(sftp)
 
-# TODO move to tests file for download and filesystem functions
-download.(sftp, files, tempdir(), force = true)
-download.(sftp, "readme.txt", ".", force = true)
 
 cd(sftp, "../")
 dirs = readdir(sftp)
@@ -61,3 +59,17 @@ target_structs = [
     "winceclient.png",
     "winceclientSmall.png"]
 )
+
+readme_content = [
+    "Welcome to test.rebex.net!",
+    "",
+    "You are connected to an FTP or SFTP server used for testing purposes",
+    "by Rebex FTP/SSL or Rebex SFTP sample code. Only read access is allowed.",
+    "",
+    "For information about Rebex FTP/SSL, Rebex SFTP and other Rebex libraries",
+    "for .NET, please visit our website at https://www.rebex.net/",
+    "",
+    "For feedback and support, contact support@rebex.net",
+    "",
+    "Thanks!"
+]
