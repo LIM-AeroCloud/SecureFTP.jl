@@ -1,14 +1,22 @@
 using SFTP
 using Test
-using CSV
 
 include("setup.jl")
 
 @testset "Connect Test" begin
+    sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    @test sftp.uri.path == "/"
+    @test sftp.username == "demo"
+    @test sftp.password == "password"
+    sftp = SFTP.Client("sftp://test.rebex.net/foo/bar", "demo", "password")
+    @test sftp.uri.path == "/foo/bar"
+    sftp = SFTP.Client("sftp://test.rebex.net/foo/bar/", "demo", "password")
+    @test sftp.uri.path == "/foo/bar/"
     @test files == wd_target[3]
     @test stats[1] == target_structs[1]
     @test dirs == ["example"]
     @test wd[3][3] == wd_target[3]
+    test_known_hosts()
 end
 
 #* Test everything possible about structs that is not already covered
@@ -22,11 +30,16 @@ res = String(take!(io))
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
     @test res == "SFTP.Client(\"demo@test.rebex.net\")\n"
+    @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[1]) == true
+    @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[2]) == false
+    @test SFTP.parse_mode("lxxxxx-x--") == 0xa1f4
+    @test_nowarn SFTP.parse_mode("dx--x--x--")
+    @test_throws ArgumentError SFTP.parse_mode("dx--x----")
+    @test_throws ArgumentError SFTP.parse_mode("dx--x--x---")
 end
 
 #* Test internal URI changes
 uri = URI("sftp://test.com/root/path")
-cd(sftp, "/pub/example")
 @testset "path changes" begin
     @testset "URI" begin
         @test SFTP.change_uripath(uri, "newpath") == URI("sftp://test.com/root/path/newpath")
@@ -64,7 +77,8 @@ f(path::AbstractString)::Vector{String} = readlines(path)
             @test_throws Base.IOError download(sftp, "readme.txt", path)
             dir = mkdir(joinpath(path, "example")) # create example folder to test merge flag
             @test_throws Base.IOError download(sftp, ".", path) == joinpath(path, "example")
-            @test download(sftp, ".", path, merge=true) == joinpath(path, "example")
+            @test_nowarn download(sftp, ".", path, merge=true)
+            @test_nowarn download(sftp, ".", path, force=true)
             @test isfile(joinpath(path, "readme.txt"))
             @test isfile(joinpath(path, "KeyGenerator.png"))
             rm.(readdir(path, join=true), recursive=true, force=true)

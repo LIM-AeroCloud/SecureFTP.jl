@@ -143,16 +143,16 @@ function Base.download(
     dst = realpath(dst)
     # Optional check, if src is hidden
     ignore_hidden && startswith(basename(src), hide_identifier) && return dst
+    # Get conflicts with dst
+    conflicts = readdir(dst)
+    conflicts = filter(isequal(base), conflicts)
     #* Download src to dst
     if isdir(sftp, src)
         # Create base folder
         src = joinpath(sftp, src, "").path
-        dst = joinpath(dst, base)
         root_idx = length(src) + 1
-        if !isempty(base)
-            # ℹ sync folder, don't create a folder for root
-            merge ? mkpath(dst) : mkdir(dst)
-        end
+        mkfolder(dst, [base], conflicts, merge, force)
+        dst = joinpath(dst, base)
         # Download folder content recursively
         for (root, dirs, files) in walkdir(sftp, src; ignore_hidden, hide_identifier)
             # Sync folder structure
@@ -165,7 +165,7 @@ function Base.download(
         end
     else
         # Download file
-        download_file(sftp, src, dst, force)
+        download_file(sftp, src, dst, conflicts, force)
         # Update dst for return value
         dst = joinpath(dst, basename(src))
     end
@@ -361,8 +361,8 @@ end
         sftp::Client,
         src::URI,
         dst::AbstractString,
-        [files::Vector{<:AbstractString},
-        conflicts::Vector{<:AbstractString},]
+        [files::Vector{<:AbstractString},]
+        conflicts::Vector{<:AbstractString},
         force::Union{Nothing,Bool}
     )
 
@@ -404,12 +404,11 @@ function download_file(
     sftp::Client,
     src::AbstractString,
     dst::AbstractString,
+    conflicts::Vector{<:AbstractString},
     force::Union{Nothing,Bool}
 )::Nothing
     # Prepare source file and conflicts
     uri, file = splitdir(sftp, src)
-    conflicts = readdir(dst)
-    conflicts = filter(isequal(file), conflicts)
     # Call general upload_file method
     download_file(sftp, uri, dst, [file], conflicts, force)
 end

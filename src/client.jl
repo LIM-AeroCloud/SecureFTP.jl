@@ -330,66 +330,80 @@ end
 ## Helper functions for SFTP.Client struct and fingerprints
 
 """
-    check_and_create_fingerprint(host::AbstractString) -> Nothing
+    check_and_create_fingerprint(
+        host::AbstractString,
+        known_hosts_file=joinpath(homedir(), ".ssh", "known_hosts")
+    )
+)
 
-Check for `host` in known_hosts.
+Check for `host` in `known_hosts_file`.
 """
-function check_and_create_fingerprint(host::AbstractString)::Nothing
-    try
-        # Try to read known_hosts file
-        known_hosts_file = joinpath(homedir(), ".ssh", "known_hosts")
-        rows=CSV.File(known_hosts_file; delim=" ", types=String, header=false)
-        # Scan known hosts for current host
-        for row in rows
-            row[1] != host && continue
-            @info "$host found host in known_hosts"
-            # check the entry we found
-            fingerprint_algo = row[2]
-            #These are known to work
-            if (fingerprint_algo == "ecdsa-sha2-nistp256" || fingerprint_algo == "ecdsa-sha2-nistp256" ||
-                fingerprint_algo ==  "ecdsa-sha2-nistp521"  || fingerprint_algo == "ssh-rsa" )
-                return
-            else
-                @warn "correct fingerprint not found in known_hosts"
-            end
-        end
-        @info "Creating fingerprint" host
-        create_fingerprint(host)
-    catch error
-        @warn "An error occurred during fingerprint check; attempting to create a new fingerprint" error
-        create_fingerprint(host)
+function check_and_create_fingerprint(
+    host::AbstractString,
+    known_hosts_file=joinpath(homedir(), ".ssh", "known_hosts")
+)::Nothing
+    # Read known_hosts file, create if missing
+    if !isfile(known_hosts_file)
+        @warn "known_hosts not found, creating '$known_hosts_file'"
+        mkpath(dirname(known_hosts_file))
+        touch(known_hosts_file)
     end
+    rows=readlines(known_hosts_file)
+    # Scan known hosts for current host
+    for row in rows
+        # @show host, startswith(known_hosts_file, host)
+        startswith(row, host) || continue
+        @info "$host found in known_hosts"
+        #These are known to work
+        if contains(row, "ecdsa-sha2-nistp256") || contains(row, "ecdsa-sha2-nistp521") ||
+            contains(row, "ssh-rsa" )
+            return
+        else
+            @warn "correct fingerprint not found in known_hosts"
+        end
+    end
+    @info "Creating fingerprint" host
+    create_fingerprint(host, known_hosts_file, rows)
 end
 
 
 """
-    create_fingerprint(host::AbstractString) -> Nothing
+    create_fingerprint(
+        host::AbstractString,
+        known_hosts::AbstractString,
+        content::Vector{String}
+    )
 
-Create a new entry in known_hosts for `host`.
+Create a new entry in `known_hosts` for `host` adding it in front of the existing `rows`.
 """
-function create_fingerprint(host::AbstractString)::Nothing
-    # Check for .ssh/known_hosts and create if missing
-    sshdir = mkpath(joinpath(homedir(), ".ssh"))
-    known_hosts = joinpath(sshdir, "known_hosts")
+function create_fingerprint(
+    host::AbstractString,
+    known_hosts::AbstractString,
+    content::Vector{String}
+)::Nothing
     # Import ssh key as trusted key or throw error (except for known test issue)
-    keyscan = ""
-    try
-        keyscan = readchomp(`ssh-keyscan -t ssh-rsa $(host)`)
-    catch
-        @error "keyscan failed; check if ssh-keyscan is installed"
-        if host == "test.rebex.net"
+    keyscan = try
+        keyscan = if host == "test.rebex.net"
             # Fix missing keyscan on NanoSoldier
             keyscan = """test.rebex.net ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAkRM6RxDdi3uAGogR3nsQMpmt43X4WnwgMzs8VkwUCqikewxqk4U7EyUSOUeT3CoUNOtywrkNbH83e6/yQgzc3M8i/eDzYtXaNGcKyLfy3Ci6XOwiLLOx1z2AGvvTXln1RXtve+Tn1RTr1BhXVh2cUYbiuVtTWqbEgErT20n4GWD4wv7FhkDbLXNi8DX07F9v7+jH67i0kyGm+E3rE+SaCMRo3zXE6VO+ijcm9HdVxfltQwOYLfuPXM2t5aUSfa96KJcA0I4RCMzA/8Dl9hXGfbWdbD2hK1ZQ1pLvvpNPPyKKjPZcMpOznprbg+jIlsZMWIHt7mq2OJXSdruhRrGzZw=="""
         else
-            rethrow()
+            readchomp(`ssh-keyscan -t ssh-rsa $(host)`)
         end
+        split(keyscan, '\n')[end]
+    catch
+        @error "keyscan failed; check if ssh-keyscan is installed"
+        rethrow()
     end
 
-    # Add host to known hosts
+    # Add host to the beginning of known hosts
+    # ℹ This avoids warnings, if host with unexepcted fingerprint exists
+    pushfirst!(content, keyscan)
+    # Save to known_hosts file
     @info "Adding fingerprint to known_hosts" keyscan
-    open(known_hosts, "a+") do f
-        println(f, keyscan)
+    open(known_hosts, "w+") do f
+        [println(f, line) for line in content]
     end
+    return
 end
 
 
