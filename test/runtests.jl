@@ -26,7 +26,7 @@ end
 
 dirs = readdir(sftp, "/pub")
 wd = collect(walkdir(sftp, "/"))
-wd_td = collect(walkdir(sftp, "/", topdown=true))
+wd_bu = collect(walkdir(sftp, "/", topdown=false))
 wd_closed = walkdir(sftp, "/pub/example/readme.txt")
 
 @testset "filesystem" begin
@@ -45,18 +45,23 @@ wd_closed = walkdir(sftp, "/pub/example/readme.txt")
     @test_throws Base.IOError mv(sftp, "foo", "bar")
     @test_throws SFTP.Downloads.RequestError mv(sftp, "/pub/example", "foo")
     @test_throws Base.IOError rm(sftp, "/pub/example")
-    @test_throws SFTP.Downloads.RequestError rm(sftp, "/pub/example/KeyGenerator.png")
+    @test_nowarn rm(sftp, "/pub/example/KeyGenerator.png", recursive=true, force=true)
     @test_throws Base.IOError mkdir(sftp, "foo/bar")
+    @test_throws Base.IOError mkdir(sftp, "/pub")
     @test_throws SFTP.Downloads.RequestError mkdir(sftp, "/pub/example/foo")
     @test_throws SFTP.Downloads.RequestError mkpath(sftp, "/pub/example/foo")
     @test wd_closed.state == :closed
     sftp_err = SFTP.Client("sftp://test.rebex.net", "demo", "pass")
     @test_throws SFTP.Downloads.RequestError walkdir(sftp_err)
-    @test wd_td == wd_topdown
+    @test wd_bu == wd_bottomup
+    sftp.uri = URI("sftp://test.rebex.net")
+    @test sftp.uri.path == ""
+    @test pwd(sftp) == "/"
 end
 
 ## Test everything possible about structs and stat that is not already covered
 # Prepare tests
+sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 linkstat = SFTP.StatStruct("foo -> path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
 io = IOBuffer()
 show(io, sftp)
@@ -148,6 +153,3 @@ end
         @test_throws Base.IOError download(f, sftp, "pub")
     end
 end
-
-## Clean-up
-rm("readme.txt", force=true)

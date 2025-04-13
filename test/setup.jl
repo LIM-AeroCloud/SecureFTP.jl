@@ -166,9 +166,7 @@ target_structs = [
     "winceclientSmall.png"]
 )
 
-wd_topdown = [
-    ("/", ["pub"], ["readme.txt"]),
-    ("/pub/", ["example"], String[]),
+wd_bottomup = [
     ("/pub/example/", String[],
         ["KeyGenerator.png",
         "KeyGeneratorSmall.png",
@@ -186,7 +184,9 @@ wd_topdown = [
         "readme.txt",
         "winceclient.png",
         "winceclientSmall.png"]
-    )
+    ),
+    ("/pub/", ["example"], String[]),
+    ("/", ["pub"], ["readme.txt"])
 ]
 
 readme_content = [
