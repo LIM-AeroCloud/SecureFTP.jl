@@ -99,7 +99,9 @@ struct StatStruct
             linkparts = split(desc, " -> ")
             if length(linkparts) == 2
                 desc = linkparts[1]
-                root *= " -> " * linkparts[2]
+                path = split(linkparts[2], "/")
+                path = join(path[1:end - 1], "/")
+                root *= " -> " * path
             end
         end
         new(desc, root, mode, nlink, uid, gid, size, mtime)
@@ -154,7 +156,7 @@ end
 
 
 # See SFTP.StatStruct struct for help/docstrings
-StatStruct(stats::String, root::AbstractString)::StatStruct = StatStruct(stats, string(root))
+StatStruct(stats::AbstractString, root::AbstractString)::StatStruct = StatStruct(string(stats), string(root))
 
 function StatStruct(stats::String, root::String)::StatStruct
     stats = split(stats, limit = 9) .|> string
@@ -168,6 +170,90 @@ end
 Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
 
 Base.broadcastable(sftp::Client) = Ref(sftp)
+
+
+#* Base function overloads for comparision and sorting of SFTPStatStructs
+
+"""
+    isequal(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+
+Compares equality between the description (`desc` fields) of two `SFTP.StatStruct` objects
+and returns `true` for equality, otherwise `false`.
+"""
+Base.isequal(a::StatStruct, b::StatStruct)::Bool =
+    isequal(a.desc, b.desc) && isequal(a.size, b.size) && isequal(a.mtime, b.mtime)
+
+
+"""
+    isless(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+
+Compares the descriptions (`desc` fields) of two `SFTP.StatStruct` objects
+and returns `true`, if `a` is lower than `b`, otherwise `false`.
+"""
+Base.isless(a::StatStruct, b::StatStruct)::Bool = a.desc < b.desc
+
+
+## Helper functions for path stats
+
+"""
+    parse_date(month::AbstractString, day::AbstractString, year_or_time::AbstractString) -> Float64
+
+From the abbreviated `month` name, the `day` and the `year_or_time` all given as `String`,
+return a unix timestamp.
+"""
+function parse_date(month::AbstractString, day::AbstractString, year_or_time::AbstractString)::Float64
+    # Process date parts
+    yearStr::String = occursin(":", year_or_time) ? string(Dates.year(Dates.today())) : year_or_time
+    timeStr::String = occursin(":", year_or_time) ? year_or_time : "00:00"
+    # Assemble datetime string
+    datetime = Dates.DateTime("$month $day $yearStr $timeStr", Dates.dateformat"u d yyyy H:M ")
+    # Return unix timestamp
+    return Dates.datetime2unix(datetime)
+end
+
+
+"""
+    parse_mode(s::AbstractString) -> UInt
+
+From the `AbstractString` `s`, parse the file mode octal number and return as `UInt`.
+"""
+function parse_mode(s::AbstractString)::UInt
+    # Error handling
+    if length(s) != 10
+        throw(ArgumentError("`s` should be an `AbstractString` of length `10`"))
+    end
+    # Determine file system object type (dir or file)
+    dir_char = s[1]
+    dir = if dir_char == 'd'
+        0x4000
+    elseif dir_char == 'l'
+        0xa000
+    else
+        0x8000
+    end
+    @debug "mode" dir_char
+
+    # Determine owner
+    owner = str2number(s[2:4])
+    group = str2number(s[5:7])
+    anyone = str2number(s[8:10])
+
+    # Return mode as UInt
+    return dir + owner * 8^2 + group * 8^1 + anyone * 8^0
+end
+
+
+"""
+    str2number(s::AbstractString) -> Int64
+
+Parse the file owner symbols in the string `s` to the corresponding ownership number.
+"""
+function str2number(s::AbstractString)::Int64
+    b1 = (s[1] != '-') ?  4 : 0
+    b2 = (s[2] != '-') ?  2 : 0
+    b3 = (s[3] != '-') ?  1 : 0
+    return b1+b2+b3
+end
 
 
 ## Helper functions for processing of server paths
@@ -197,8 +283,13 @@ when the flag is `true`/`false`, or left unchanged, if `trailing_slash` is `noth
     and is not recommended unless absolutely needed.
 """
 function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing)::URI
+    # Convert windows paths to web paths
+    paths = String[]
+    for p in path
+        push!(paths, replace(p, Base.Filesystem.path_separator => "/"))
+    end
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    uri = joinpath(uri, string.(path)...)
+    uri = joinpath(uri, paths...)
     uri = if istrue(trailing_slash)
         # Add trailing slash for directories and when flag is true
         joinpath(uri, "")
@@ -209,7 +300,8 @@ function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union
         uri
     end
     @debug "URI path" uri.path
-    URIs.resolvereference(uri, URIs.escapepath(uri.path))
+    u=URIs.resolvereference(uri, URIs.escapepath(uri.path))
+    return u
 end
 
 # ¡ Method currently not used, probably slow due to statscan !
@@ -244,66 +336,79 @@ end
 ## Helper functions for SFTP.Client struct and fingerprints
 
 """
-    check_and_create_fingerprint(host::AbstractString) -> Nothing
+    check_and_create_fingerprint(
+        host::AbstractString,
+        known_hosts_file=joinpath(homedir(), ".ssh", "known_hosts")
+    )
+)
 
-Check for `host` in known_hosts.
+Check for `host` in `known_hosts_file`.
 """
-function check_and_create_fingerprint(host::AbstractString)::Nothing
-    try
-        # Try to read known_hosts file
-        known_hosts_file = joinpath(homedir(), ".ssh", "known_hosts")
-        rows=CSV.File(known_hosts_file; delim=" ", types=String, header=false)
-        # Scan known hosts for current host
-        for row in rows
-            row[1] != host && continue
-            @info "$host found host in known_hosts"
-            # check the entry we found
-            fingerprint_algo = row[2]
-            #These are known to work
-            if (fingerprint_algo == "ecdsa-sha2-nistp256" || fingerprint_algo == "ecdsa-sha2-nistp256" ||
-                fingerprint_algo ==  "ecdsa-sha2-nistp521"  || fingerprint_algo == "ssh-rsa" )
-                return
-            else
-                @warn "correct fingerprint not found in known_hosts"
-            end
-        end
-        @info "Creating fingerprint" host
-        create_fingerprint(host)
-    catch error
-        @warn "An error occurred during fingerprint check; attempting to create a new fingerprint" error
-        create_fingerprint(host)
+function check_and_create_fingerprint(
+    host::AbstractString,
+    known_hosts_file=joinpath(homedir(), ".ssh", "known_hosts")
+)::Nothing
+    # Read known_hosts file, create if missing
+    if !isfile(known_hosts_file)
+        @warn "known_hosts not found, creating '$known_hosts_file'"
+        mkpath(dirname(known_hosts_file))
+        touch(known_hosts_file)
     end
+    rows=readlines(known_hosts_file)
+    # Scan known hosts for current host
+    for row in rows
+        startswith(row, host) || continue
+        @info "$host found in known_hosts"
+        #These are known to work
+        if contains(row, "ecdsa-sha2-nistp256") || contains(row, "ecdsa-sha2-nistp521") ||
+            contains(row, "ssh-rsa" )
+            return
+        else
+            @warn "correct fingerprint not found in known_hosts"
+        end
+    end
+    @info "Creating fingerprint" host
+    create_fingerprint(host, known_hosts_file, rows)
 end
 
 
 """
-    create_fingerprint(host::AbstractString) -> Nothing
+    create_fingerprint(
+        host::AbstractString,
+        known_hosts::AbstractString,
+        content::Vector{String}
+    )
 
-Create a new entry in known_hosts for `host`.
+Create a new entry in `known_hosts` for `host` adding it in front of the existing `rows`.
 """
-function create_fingerprint(host::AbstractString)::Nothing
-    # Check for .ssh/known_hosts and create if missing
-    sshdir = mkpath(joinpath(homedir(), ".ssh"))
-    known_hosts = joinpath(sshdir, "known_hosts")
+function create_fingerprint(
+    host::AbstractString,
+    known_hosts::AbstractString,
+    content::Vector{String}
+)::Nothing
     # Import ssh key as trusted key or throw error (except for known test issue)
-    keyscan = ""
-    try
-        keyscan = readchomp(`ssh-keyscan -t ssh-rsa $(host)`)
-    catch
-        @error "keyscan failed; check if ssh-keyscan is installed"
-        if host == "test.rebex.net"
+    keyscan = try
+        keyscan = if host == "test.rebex.net"
             # Fix missing keyscan on NanoSoldier
             keyscan = """test.rebex.net ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAkRM6RxDdi3uAGogR3nsQMpmt43X4WnwgMzs8VkwUCqikewxqk4U7EyUSOUeT3CoUNOtywrkNbH83e6/yQgzc3M8i/eDzYtXaNGcKyLfy3Ci6XOwiLLOx1z2AGvvTXln1RXtve+Tn1RTr1BhXVh2cUYbiuVtTWqbEgErT20n4GWD4wv7FhkDbLXNi8DX07F9v7+jH67i0kyGm+E3rE+SaCMRo3zXE6VO+ijcm9HdVxfltQwOYLfuPXM2t5aUSfa96KJcA0I4RCMzA/8Dl9hXGfbWdbD2hK1ZQ1pLvvpNPPyKKjPZcMpOznprbg+jIlsZMWIHt7mq2OJXSdruhRrGzZw=="""
         else
-            rethrow()
+            readchomp(`ssh-keyscan -t ssh-rsa $(host)`)
         end
+        split(keyscan, '\n')[end]
+    catch
+        @error "keyscan failed; check if ssh-keyscan is installed"
+        rethrow()
     end
 
-    # Add host to known hosts
+    # Add host to the beginning of known hosts
+    # ℹ This avoids warnings, if host with unexepcted fingerprint exists
+    pushfirst!(content, keyscan)
+    # Save to known_hosts file
     @info "Adding fingerprint to known_hosts" keyscan
-    open(known_hosts, "a+") do f
-        println(f, keyscan)
+    open(known_hosts, "w+") do f
+        [println(f, line) for line in content]
     end
+    return
 end
 
 
