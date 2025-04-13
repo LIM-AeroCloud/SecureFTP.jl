@@ -28,7 +28,7 @@ show(io, sftp)
 res = String(take!(io))
 
 # Run tests
-@testset "Structs" begin
+@testset "Stats and structs" begin
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
     @test res == "SFTP.Client(\"demo@test.rebex.net\")\n"
@@ -38,6 +38,13 @@ res = String(take!(io))
     @test_nowarn SFTP.parse_mode("dx--x--x--")
     @test_throws ArgumentError SFTP.parse_mode("dx--x----")
     @test_throws ArgumentError SFTP.parse_mode("dx--x--x---")
+    @test ispath(sftp, "/pub") == true
+    @test ispath(sftp, "foo") == false
+    st = stat(sftp, "/pub/example/KeyGenerator.png")
+    @test isfile(st) == true
+    @test isdir(st) == false
+    @test islink(st) == false
+    @test islink(sftp, "/pub/example/KeyGenerator.png") == false
 end
 
 #* Test internal URI changes

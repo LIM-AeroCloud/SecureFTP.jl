@@ -285,10 +285,11 @@ function mkfolder(
     if merge || isfalse(force)
         dirs = setdiff(dirs, conflicts)
     elseif istrue(force)
-        rm.(joinpath.(path, conflicts), recursive = true, force = true)
+        rm.(normpath.(joinpath.(path, conflicts)), recursive = true, force = true)
     end
     # Create missing folders
-    mkdir.(joinpath.(path, dirs))
+    mkdir.(normpath.(joinpath.(path, dirs)))
+    # ¡Use normpath above to ensure windows paths are created correctly!
     return
 end
 
@@ -411,7 +412,7 @@ function download_file(
         !isempty(conflicts) && throw(Base.IOError("cannot overwrite existing path(s) \
             $(join(joinpath.(dst, files), ", ", " and "))", -1))
     elseif istrue(force)
-        rm.(joinpath.(dst, conflicts), recursive = true, force = true)
+        rm.(normpath.(joinpath.(dst, conflicts)), recursive = true, force = true)
     else
         files = setdiff(files, conflicts)
     end
@@ -419,8 +420,9 @@ function download_file(
     for file in files
         # Download file from server
         Downloads.download(string(change_uripath(src, file, trailing_slash = false)),
-            joinpath(dst, file); sftp.downloader)
+            normpath(joinpath(dst, file)); sftp.downloader)
     end
+    # ¡Use normpath above to ensure windows paths are created correctly!
     return
 end
 

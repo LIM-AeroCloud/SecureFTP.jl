@@ -283,8 +283,13 @@ when the flag is `true`/`false`, or left unchanged, if `trailing_slash` is `noth
     and is not recommended unless absolutely needed.
 """
 function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing)::URI
+    # Convert windows paths to web paths
+    paths = String[]
+    for p in path
+        push!(paths, replace(p, Base.Filesystem.path_separator => "/"))
+    end
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    uri = joinpath(uri, string.(path)...)
+    uri = joinpath(uri, paths...)
     uri = if istrue(trailing_slash)
         # Add trailing slash for directories and when flag is true
         joinpath(uri, "")
@@ -295,7 +300,8 @@ function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union
         uri
     end
     @debug "URI path" uri.path
-    URIs.resolvereference(uri, URIs.escapepath(uri.path))
+    u=URIs.resolvereference(uri, URIs.escapepath(uri.path))
+    return u
 end
 
 # ¡ Method currently not used, probably slow due to statscan !
@@ -351,7 +357,6 @@ function check_and_create_fingerprint(
     rows=readlines(known_hosts_file)
     # Scan known hosts for current host
     for row in rows
-        # @show host, startswith(known_hosts_file, host)
         startswith(row, host) || continue
         @info "$host found in known_hosts"
         #These are known to work

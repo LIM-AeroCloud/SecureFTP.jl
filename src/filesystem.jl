@@ -244,7 +244,11 @@ end
 
 function Base.readdir(sftp::Client, path::AbstractString, __test__::AbstractString)
     isempty(__test__) && return readdir(sftp, path)
-    isabspath(path) && (path = path[2:end])
+    isempty(path) && return readdir(sftp, __test__)
+    if isabspath(path)
+        path =splitpath(path)[2:end]
+        path = isempty(path) ? "" : joinpath(path...)
+    end
     readdir(joinpath(__test__, path))
 end
 
@@ -386,8 +390,11 @@ The `parts` are joined to the `root` even if the yield an absolute path.
 function joinrootpath(root::AbstractString, parts::AbstractString...)::String
     path = joinpath(parts...)
     isempty(root) && return path
-    isabspath(path) && (path = path[2:end])
-    joinpath(root, path)
+    if isabspath(path)
+        path = splitpath(path)[2:end]
+        path = isempty(path) ? "" : joinpath(path...)
+    end
+    normpath(joinpath(root, path))
 end
 
 
