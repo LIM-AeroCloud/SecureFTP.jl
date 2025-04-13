@@ -47,22 +47,26 @@ function upload(
     merge::Bool=false,
     force::Union{Nothing,Bool}=nothing,
     ignore_hidden::Bool=false,
-    hide_identifier::Union{Char,AbstractString}='.'
+    hide_identifier::Union{Char,AbstractString}='.',
+    __test__::String=""
 )::String
     #* Check remote and local path
     src = realpath(src)
     dst = joinpath(sftp, dst, "").path
     isdir(sftp, dst) || throw(Base.IOError("$dst must be a directory", 1))
+    path, base = splitdir(src)
+    # Get conflicts with dst
+    conflicts = readdir(sftp, dst, __test__)
+    conflicts = filter(isequal(base), conflicts)
     #* Upload src to dst
     if isdir(src)
         #* Upload folder content recursively
-        # Handle hidden src
-        path, base = splitdir(src)
-        hidden_dir = joinpath(path, string(hide_identifier))
-        ignore_hidden && startswith(src, hidden_dir) && return dst
         # Create base folder
         root_idx = length(path) + 2 # ℹ +2 for index after the omitted trailing slash
-        isempty(base) || mkpath(sftp, joinpath(sftp, dst, base).path)
+        isempty(base) || mkfolder(sftp, joinpath(sftp, dst).path, [base],
+            conflicts, merge, force, ignore_hidden, hide_identifier, __test__)
+        # Init hidden path object handling
+        hidden_dir = joinpath(path, string(hide_identifier))
         for (root, dirs, files) in walkdir(src)
             # Ignore hidden folders and their content
             if ignore_hidden
@@ -70,15 +74,15 @@ function upload(
             end
             # Handle conflicts
             cwd = joinpath(sftp, dst, root[root_idx:end]).path
-            conflicts = readdir(sftp, cwd)
+            conflicts = readdir(sftp, cwd, __test__)
             # Sync folders
-            mkfolder(sftp, cwd, dirs, intersect(dirs, conflicts), merge, force, ignore_hidden, hide_identifier)
+            mkfolder(sftp, cwd, dirs, intersect(dirs, conflicts), merge, force, ignore_hidden, hide_identifier, __test__)
             # Sync files
-            upload_file(sftp, root, cwd, files, intersect(files, conflicts), force, ignore_hidden, hide_identifier)
+            upload_file(sftp, root, cwd, files, intersect(files, conflicts), force, ignore_hidden, hide_identifier, __test__)
         end
     else
         # Upload file
-        upload_file(sftp, src, dst, force, ignore_hidden, hide_identifier)
+        upload_file(sftp, src, dst, conflicts, force, ignore_hidden, hide_identifier, __test__)
     end
     return dst
 end
@@ -141,8 +145,8 @@ function Base.download(
     base = basename(sftp, src)
     isdir(dst) || throw(Base.IOError("$dst must be an existing directory", 1))
     dst = realpath(dst)
-    # Optional check, if src is hidden
-    ignore_hidden && startswith(basename(src), hide_identifier) && return dst
+    # Optionally, skip hidden
+    ignore_hidden && startswith(base, hide_identifier) && return dst
     # Get conflicts with dst
     conflicts = readdir(dst)
     conflicts = filter(isequal(base), conflicts)
@@ -246,7 +250,8 @@ function mkfolder(
     merge::Bool,
     force::Union{Nothing, Bool},
     ignore_hidden::Bool,
-    hide_identifier::Union{AbstractString,Char}
+    hide_identifier::Union{AbstractString,Char},
+    __test__::String
 )::Nothing
     # Handle conflicts and hidden folders
     # ¡Avoid in-place replacements with setdiff! and filter! to leave dir unchanged outside mkfolder!
@@ -254,10 +259,18 @@ function mkfolder(
     if merge || isfalse(force)
         dirs = setdiff(dirs, conflicts)
     elseif istrue(force)
-        rm.(sftp, joinpath.(sftp, path, conflicts) .|> pwd, recursive = true, force = true)
+        if isempty(__test__)
+            rm.(sftp, joinpath.(sftp, path, conflicts) .|> pwd, recursive = true, force = true)
+        else
+            rm.(joinrootpath.(__test__, path, conflicts), recursive=true, force=true)
+        end
     end
     # Create missing folders
-    mkdir.(sftp, joinpath.(sftp, path, dirs) .|> pwd)
+    if isempty(__test__)
+        mkdir.(sftp, joinpath.(sftp, path, dirs) .|> pwd)
+    else
+        mkdir.(joinrootpath.(__test__, path, dirs))
+    end
     return
 end
 
@@ -312,7 +325,8 @@ function upload_file(
     conflicts::Vector{<:AbstractString},
     force::Union{Nothing,Bool},
     ignore_hidden::Bool,
-    hide_identifier::Union{AbstractString,Char}
+    hide_identifier::Union{AbstractString,Char},
+    __test__::String
 )::Nothing
     #* Handle conflicts and hidden files
     ignore_hidden && filter!(!startswith(hide_identifier), files)
@@ -320,16 +334,26 @@ function upload_file(
         !isempty(conflicts) && throw(Base.IOError("cannot overwrite existing path(s) \
             $(join(joinpath.(sftp, dst, files) .|> pwd, ", ", " and "))", -1))
     elseif istrue(force)
-        rm.(sftp, joinpath.(sftp, dst, conflicts) .|> pwd,
-            recursive = true, force = true)
+        if isempty(__test__)
+            rm.(sftp, joinpath.(sftp, dst, conflicts) .|> pwd,
+                recursive = true, force = true)
+        else
+            rm.(joinrootpath.(__test__, dst, conflicts), recursive=true, force=true)
+        end
     else
         files = setdiff(files, conflicts)
     end
     #* Loop over files
     for file in files
-        # Open local file and upload to server
-        open(joinpath(src, file), "r") do f
-            Downloads.request(string(joinpath(sftp, dst, file)), input=f; downloader=sftp.downloader)
+        if isempty(__test__)
+            # Open local file and upload to server
+            open(joinpath(src, file), "r") do f
+                Downloads.request(string(joinpath(sftp, dst, file)), input=f; downloader=sftp.downloader)
+            end
+        else
+            # Mock upload for tests
+            @debug "mock file upload to $(joinpath(__test__, dst, file))"
+            cp(joinpath(src, file), joinrootpath(__test__, dst, file))
         end
     end
     return
@@ -339,9 +363,11 @@ function upload_file(
     sftp::Client,
     src::AbstractString,
     dst::AbstractString,
+    conflicts::Vector{<:AbstractString},
     force::Union{Nothing,Bool},
     ignore_hidden::Bool,
-    hide_identifier::Union{AbstractString,Char}
+    hide_identifier::Union{AbstractString,Char},
+    __test__::String
 )::Nothing
     # Prepare source file and conflicts
     if !isfile(src)
@@ -349,10 +375,8 @@ function upload_file(
         return
     end
     path, file = splitdir(src)
-    conflicts = readdir(sftp, dst)
-    conflicts = filter(isequal(file), conflicts)
     # Call general upload_file method
-    upload_file(sftp, path, dst, [file], conflicts, force, ignore_hidden, hide_identifier)
+    upload_file(sftp, path, dst, [file], conflicts, force, ignore_hidden, hide_identifier, __test__)
 end
 
 

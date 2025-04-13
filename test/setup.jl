@@ -1,33 +1,136 @@
 ## Helper functions
 
+
+"""
+    test_known_hosts()
+
+Test the checks and creation of known_hosts files and possible error handling.
+"""
 function test_known_hosts()::Nothing
     mktempdir() do path
         file = joinpath(path, ".ssh", "known_hosts")
-        cp("data", joinpath(path, ".ssh"))
+        cp(joinpath("data", ".ssh"), joinpath(path, ".ssh"))
+        @test_throws Base.ProcessFailedException SFTP.check_and_create_fingerprint("new.host", file)
         @test_logs (:info, "host.com found in known_hosts") SFTP.check_and_create_fingerprint("host.com", file)
-        @test readlines(file) == readlines("data/known_hosts")
+        @test readlines(file) == readlines(joinpath("data", ".ssh", "known_hosts"))
         @test_logs((:info, "test.rebex.net found in known_hosts"), (:warn, "correct fingerprint not found in known_hosts"),
             (:info, "Creating fingerprint"), (:info, "Adding fingerprint to known_hosts"), SFTP.check_and_create_fingerprint("test.rebex.net", file))
-        @test readlines(file) == readlines("data/updated_known_hosts")
+        @test readlines(file) == readlines(joinpath("data", ".ssh", "updated_known_hosts"))
         file = joinpath(path, ".ssh", "unknown_hosts")
         @test_logs((:info, "Creating fingerprint"), (:info, "Adding fingerprint to known_hosts"), SFTP.check_and_create_fingerprint("test.rebex.net", file))
-        @test readlines(file) == readlines("data/updated_unknown_hosts")
+        @test readlines(file) == readlines(joinpath("data", ".ssh", "updated_unknown_hosts"))
         file = joinpath(path, ".ssh", "missing_hosts")
         @test_logs((:warn, "known_hosts not found, creating '$file'"), (:info, "Creating fingerprint"),
             (:info, "Adding fingerprint to known_hosts"), SFTP.check_and_create_fingerprint("test.rebex.net", file))
-        @test readlines(file) == readlines("data/updated_missing_hosts")
+        @test readlines(file) == readlines(joinpath("data", ".ssh", "updated_missing_hosts"))
         file = joinpath(path, ".missing", "known_hosts")
         @test_logs((:warn, "known_hosts not found, creating '$file'"), (:info, "Creating fingerprint"),
             (:info, "Adding fingerprint to known_hosts"), SFTP.check_and_create_fingerprint("test.rebex.net", file))
         @test isfile(file)
-        @test readlines(file) == readlines("data/updated_missing_hosts")
+        @test readlines(file) == readlines(joinpath("data", ".ssh", "updated_missing_hosts"))
     end
     return
 end
 
+
+"""
+    test_fileupload(sftp::SFTP.Client)
+
+Test the file upload with the upload function and various flags as well as error handling.
+"""
+function test_fileupload(sftp::SFTP.Client)::Nothing
+    mktempdir() do path
+        upload(sftp, joinpath("data", ".hidden_file"), "/", __test__=path)
+        @test isfile(joinpath(path, ".hidden_file"))
+        @test_throws Base.IOError upload(sftp, joinpath("data", ".hidden_file"), "/", __test__=path)
+        @test_nowarn upload(sftp, joinpath("data", ".hidden_file"), "/", __test__=path, force=true)
+    end
+    mktempdir() do path
+        upload(sftp, joinpath("data", ".hidden_file"), "/", __test__=path, ignore_hidden=true)
+        @test !isfile(joinpath(path, ".hidden_file"))
+    end
+    return
+end
+
+
+"""
+    test_dirupload(sftp::SFTP.Client)
+
+Test the directory upload with the upload function and various flags as well as error handling.
+"""
+function test_dirupload(sftp::SFTP.Client)::Nothing
+    mktempdir() do path
+        upload(sftp, "data", "/", __test__=path)
+        @test test_upload(path, "data", upload_target)
+        @test_throws Base.IOError upload(sftp, "data", "/", __test__=path)
+        @test_nowarn upload(sftp, "data", "/", __test__=path, force=true)
+    end
+    mktempdir() do path
+        upload(sftp, "data", "/", __test__=path, ignore_hidden=true)
+        @test test_upload(path, "data", visible_upload)
+        @test_throws Base.IOError upload(sftp, "data", "/", __test__=path, merge=true)
+        upload(sftp, "data", "/", __test__=path, merge=true, force=true)
+        @test test_upload(path, "data", upload_target)
+    end
+    mktempdir() do path
+        mkpath(joinpath(path, "data", "existing_dir"))
+        touch(joinpath(path, "data", "existing_file"))
+        touch(joinpath(path, "data", "existing_dir", "subfile"))
+        upload(sftp, "data", "/", __test__=path, merge=true)
+        @test test_upload(path, "data", merged_upload)
+    end
+    return
+end
+
+
+"""
+    test_upload(
+        tmpdir::AbstractString,
+        dir::AbstractString,
+        target::Vector{Tuple{String,Vector{String},Vector{String}}}
+    ) -> Bool
+
+Compare the contents in the mocked `tmpdir`/`dir` to the `target` path objects.
+Return `true`, if all folders and files match, otherwise `false`.
+"""
+function test_upload(
+    tmpdir::AbstractString,
+    dir::AbstractString,
+    target::Vector{Tuple{String,Vector{String},Vector{String}}}
+)::Bool
+    for (src, dst) in zip(walkdir(joinpath(tmpdir, dir)), target)
+        src[2] == dst[2] || return false
+        src[3] == dst[3] || return false
+    end
+    return true
+end
+
+
+## Setup Script
+
 # Connect to example folder on server
 sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
 cd(sftp, "/pub/example")
+
+
+## Target values
+
+#* Upload path structure
+# Define expected uploaded path objects
+upload_target = collect(walkdir("data"))
+
+# Define uploads without hidden path objects
+visible_upload = deepcopy(upload_target)
+deleteat!(visible_upload, 2:4)
+deleteat!(visible_upload[1][2], 1:2)
+popfirst!(visible_upload[1][3])
+
+# Define upload into existing path
+merged_upload = deepcopy(upload_target)
+insert!(merged_upload[1][2], 3, "existing_dir")
+push!(merged_upload[1][3], "existing_file")
+insert!(merged_upload, 5, (joinpath("data", "existing_dir"), [], ["subfile"]))
+
 
 #=
 sftp_uri = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")

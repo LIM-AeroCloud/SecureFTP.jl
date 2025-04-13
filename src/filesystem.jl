@@ -242,6 +242,12 @@ function Base.readdir(
     return files
 end
 
+function Base.readdir(sftp::Client, path::AbstractString, __test__::AbstractString)
+    isempty(__test__) && return readdir(sftp, path)
+    isabspath(path) && (path = path[2:end])
+    readdir(joinpath(__test__, path))
+end
+
 
 """
     walkdir(
@@ -365,6 +371,24 @@ an `URI` with the updated path.
 Base.joinpath
 Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
 Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path...)
+
+
+"""
+    joinrootpath(root::AbstractString, parts::AbstractString...) -> String
+
+Join all path `parts` to the `root` path and return as `String`.
+The `parts` are joined to the `root` even if the yield an absolute path.
+
+!!! note
+    This is an internal version for testing mocked file uploads.
+    The `root` is expected to be a tempdir.
+"""
+function joinrootpath(root::AbstractString, parts::AbstractString...)::String
+    path = joinpath(parts...)
+    isempty(root) && return path
+    isabspath(path) && (path = path[2:end])
+    joinpath(root, path)
+end
 
 
 """

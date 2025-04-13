@@ -3,6 +3,7 @@ using Test
 
 include("setup.jl")
 
+## Test Connection to server
 @testset "Connect Test" begin
     sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
     @test sftp.uri.path == "/"
@@ -26,6 +27,7 @@ io = IOBuffer()
 show(io, sftp)
 res = String(take!(io))
 
+# Run tests
 @testset "Structs" begin
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
@@ -67,6 +69,16 @@ end
 
 #* Test file exchange
 f(path::AbstractString)::Vector{String} = readlines(path)
+
+@testset "upload" begin
+    @testset "wrong path" begin
+        @test_throws Base.IOError upload(sftp, "foo.txt", "pub")
+        @test_throws Base.IOError upload(sftp, "setup.jl", "foo")
+    end
+    @testset "file" test_fileupload(sftp)
+    @testset "directory" test_dirupload(sftp,)
+end
+
 @testset "download" begin
     @testset "to dir" begin
         mktempdir() do path
