@@ -106,13 +106,6 @@ function test_upload(
 end
 
 
-## Setup Script
-
-# Connect to example folder on server
-sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
-cd(sftp, "/pub/example")
-
-
 ## Target values
 
 #* Upload path structure
@@ -132,25 +125,7 @@ push!(merged_upload[1][3], "existing_file")
 insert!(merged_upload, 5, (joinpath("data", "existing_dir"), [], ["subfile"]))
 
 
-#=
-sftp_uri = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
-@test sftp.uri.path == sftp_uri.uri.path
-cd(sftp, "foo")
-=#
-
-# TODO move to runtests
-# Get contents of example folder
-stats = statscan(sftp)
-files = readdir(sftp)
-
-
-cd(sftp, "../")
-dirs = readdir(sftp)
-cd(sftp, "..")
-wd = collect(walkdir(sftp, "."))
-cd(sftp, "/pub/example")
-
-## Results (for comparison)
+#* Download stats
 
 target_structs = [
     SFTP.StatStruct("KeyGenerator.png", "/pub/example/", 0x0000000000008180, 1, "demo", "users", 36672, 1.1742624e9),
@@ -190,6 +165,29 @@ target_structs = [
     "winceclient.png",
     "winceclientSmall.png"]
 )
+
+wd_topdown = [
+    ("/", ["pub"], ["readme.txt"]),
+    ("/pub/", ["example"], String[]),
+    ("/pub/example/", String[],
+        ["KeyGenerator.png",
+        "KeyGeneratorSmall.png",
+        "ResumableTransfer.png",
+        "WinFormClient.png",
+        "WinFormClientSmall.png",
+        "imap-console-client.png",
+        "mail-editor.png",
+        "mail-send-winforms.png",
+        "mime-explorer.png",
+        "pocketftp.png",
+        "pocketftpSmall.png",
+        "pop3-browser.png",
+        "pop3-console-client.png",
+        "readme.txt",
+        "winceclient.png",
+        "winceclientSmall.png"]
+    )
+]
 
 readme_content = [
     "Welcome to test.rebex.net!",

@@ -1,7 +1,12 @@
 using SFTP
 using Test
 
+## Setup
 include("setup.jl")
+sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+stats = statscan(sftp)
+files = readdir(sftp)
+
 
 ## Test Connection to server
 @testset "Connect Test" begin
@@ -13,14 +18,44 @@ include("setup.jl")
     @test sftp.uri.path == "/foo/bar"
     sftp = SFTP.Client("sftp://test.rebex.net/foo/bar/", "demo", "password")
     @test sftp.uri.path == "/foo/bar/"
-    @test files == wd_target[3]
-    @test stats[1] == target_structs[1]
-    @test dirs == ["example"]
-    @test wd[3][3] == wd_target[3]
     test_known_hosts()
 end
 
-#* Test everything possible about structs that is not already covered
+
+## Test file system navigation
+
+dirs = readdir(sftp, "/pub")
+wd = collect(walkdir(sftp, "/"))
+wd_td = collect(walkdir(sftp, "/", topdown=true))
+wd_closed = walkdir(sftp, "/pub/example/readme.txt")
+
+@testset "filesystem" begin
+    sftp_root = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    @test sftp_root.uri.path == "/"
+    @test pwd(sftp_root) == "/"
+    cd(sftp_root, "pub/example")
+    @test sftp_root.uri.path == sftp.uri.path
+    @test pwd(sftp) == "/pub/example/"
+    @test basename(sftp.uri) == "example"
+    @test SFTP.unescape_joinpath(sftp, "unescaped dir") == "/pub/example/unescaped dir"
+    @test files == wd_target[3]
+    @test dirs == ["example"]
+    @test wd[3][3] == wd_target[3]
+    @test_throws Base.IOError cd(sftp, "foo")
+    @test_throws Base.IOError mv(sftp, "foo", "bar")
+    @test_throws SFTP.Downloads.RequestError mv(sftp, "/pub/example", "foo")
+    @test_throws Base.IOError rm(sftp, "/pub/example")
+    @test_throws SFTP.Downloads.RequestError rm(sftp, "/pub/example/KeyGenerator.png")
+    @test_throws Base.IOError mkdir(sftp, "foo/bar")
+    @test_throws SFTP.Downloads.RequestError mkdir(sftp, "/pub/example/foo")
+    @test_throws SFTP.Downloads.RequestError mkpath(sftp, "/pub/example/foo")
+    @test wd_closed.state == :closed
+    sftp_err = SFTP.Client("sftp://test.rebex.net", "demo", "pass")
+    @test_throws SFTP.Downloads.RequestError walkdir(sftp_err)
+    @test wd_td == wd_topdown
+end
+
+## Test everything possible about structs and stat that is not already covered
 # Prepare tests
 linkstat = SFTP.StatStruct("foo -> path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
 io = IOBuffer()
@@ -29,6 +64,7 @@ res = String(take!(io))
 
 # Run tests
 @testset "Stats and structs" begin
+    @test stats[1] == target_structs[1]
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
     @test res == "SFTP.Client(\"demo@test.rebex.net\")\n"
@@ -47,7 +83,7 @@ res = String(take!(io))
     @test islink(sftp, "/pub/example/KeyGenerator.png") == false
 end
 
-#* Test internal URI changes
+## Test internal URI changes
 uri = URI("sftp://test.com/root/path")
 @testset "path changes" begin
     @testset "URI" begin
@@ -74,7 +110,7 @@ uri = URI("sftp://test.com/root/path")
     @test_throws Base.IOError SFTP.findbase(target_structs, "foo", "bar")
 end
 
-#* Test file exchange
+## Test file exchange
 f(path::AbstractString)::Vector{String} = readlines(path)
 
 @testset "upload" begin
