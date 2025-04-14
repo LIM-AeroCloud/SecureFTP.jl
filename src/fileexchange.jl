@@ -192,13 +192,13 @@ Only temporary files are created on the local system and directly deleted after 
 # Examples
 
 ```julia
-using CSV, DataFrames
+using CSV
 # Define functions to process the file data
 fcsv(path::AbstractString)::Matrix{Int} = CSV.read(path, CSV.Tables.matrix)
 fread(path::AbstractString)::Vector{String} = readlines(path)
 # Download data to variable
-matrix = download(fcsv, sftp, "data/matrix.csv", _test=true)
-array = download(fread, sftp, "data/matrix.csv", _test=true)
+matrix = download(fcsv, sftp, "data/matrix.csv")
+array = download(fread, sftp, "data/matrix.csv")
 ```
 """
 function Base.download(fcn::Function, sftp::Client, src::AbstractString; _test::Bool=false)
