@@ -1,0 +1,94 @@
+```@meta
+EditURL = "https://github.com/LIM-AeroCloud/SFTP.jl/blob/master/CHANGELOG.md"
+```
+
+# Release Notes
+
+This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+## [Unreleased]
+
+The initial release is based on [SFTPClient (v0.4.4)](https://github.com/stensmo/SFTPClient.jl/releases/tag/0.4.4).
+All changes for this released are documented in respect to this version.
+
+### Added
+
+- Initial release with new project name SFTP.jl and new initial version v0.1.0
+- Prefer `Logging` over simple print commands
+- Overload `stat` with simplified `stat` method for a single path object
+  (in contrast to `statscan` that scans the whole folder) and return an `SFTP.StatStruct`
+- Overlaod Base functions for the file system; new methods added for:
+  - `ispath`
+  - `pwd`
+  - `mkdir` (previous `mkdir` was renamed to `mkpath`)
+  - `joinpath`
+  - `splitdir`
+  - `basename`
+- Add labels for docs, CI status and Codecov in Readme
+- Add workflow for compat helper
+- Add changelog and automate with Changelog.jl
+
+### Changed
+
+- Update API
+  - exported:
+    - `upload`
+    - `statscan`
+    - `URI`
+  - public:
+    - `Client`
+    - `StatStruct`
+    - `download`
+    - `stat`
+    - `filemode`
+    - `ispath`
+    - `isdir`
+    - `isfile`
+    - `islink`
+    - `pwd`
+    - `cd`
+    - `mv`
+    - `rm`
+    - `mkdir`
+    - `mkpath`
+    - `readdir`
+    - `walkdir`
+    - `joinpath`
+    - `splitdir`
+    - `basename`
+- Completely refactor code base, use concise variable names, format source code
+- Rename `SFTPStatStruct` to `StatStruct` (unexported) and refactor constructors
+- Rename `SFTP` to `Client` (unexported) and refactor constructors
+- Rename `sftpstat` to `statscan`
+- Rename `mkdir` to `mkpath` (as it has the functionality of `mkpath`, add new method for `mkdir`)
+- Update functionality of file system functions to more close resemble Julia's Base functions
+  - Combine `rm`/`rmdir` in `rm` with a `force` flag
+  - Sort results in `readdir`, `stat`, `statscan`, and `walkdir` (can be switched off with `sort`
+    flag)
+  - Introduce more checks and restrictions based on Julia's file system function/Unix functions
+  - Check validity of a path
+  - Add methods to pass a path as `String` to `filemode` and related functions instead of 
+    a `StatStruct` object
+  - Allow recursive methods, where appropriate
+- Allow upload/download of directories
+  - Add `force`/`merge` flag
+  - Allow filtering of hidden files
+  - Update and unify how paths are defined on the remote and local system
+- Refactor and extent tests
+- Update documentation
+
+### Removed
+
+- Remove `CSV` as dependecy and use `readlines` instead
+- Remove `FileWatching`, `ArgTools`, and `NetworkOptions` as dependency
+
+### Fixed
+
+- Overload `walkdir` and `download` instead of defining new functions
+- Ensure Windows paths are processed correctly
+- Several fixes concerning the representation of paths (especially under Windows)
+- Symlinks are now recognised by `stat`/`statscan`
+- `walkdir` correctly follows symlinks
+
+
