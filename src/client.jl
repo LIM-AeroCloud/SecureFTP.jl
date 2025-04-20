@@ -5,10 +5,35 @@
 
 `SFTP` manages the connection to the server and stores all relevant connection data.
 
+# Fields
+
+- `downloader::Downloader`
+- `uri::URI`
+- `username::String`
+- `password::String`
+- `disable_verify_peer::Bool`
+- `disable_verify_host::Bool`
+- `verbose::Bool`
+- `public_key_file::String`
+- `private_key_file::String`
+
 # Constructors
 
     SFTP.Client(url::AbstractString, username::AbstractString, public_key_file::AbstractString, public_key_file::AbstractString; kwargs) -> SFTP.Client
     SFTP.Client(url::AbstractString, username::AbstractString, password::AbstractString=""; kwargs) -> SFTP.Client
+
+!!! note
+    A username must be provided for both methods to work.
+
+!!! warning "Setup certificate authentication"
+    Before using the constructor method for certificate authentication, private and public
+    key files must be created and stored in the ~/.ssh folder and on the server, e.g.
+    ~/.ssh/id_rsa and ~/.ssh/id_rsa.pub. Additionally, the host must be added to the
+    known_hosts file in the ~/.ssh folder.
+
+!!! note "Testing certificate authentication"
+    The correct setup can be tested in the terminal with
+    `ssh myuser@mysitewhereIhaveACertificate.com`.
 
 Construct an `SFTP.Client` from the url and either user information or public and private key file.
 
@@ -20,24 +45,12 @@ Construct an `SFTP.Client` from the url and either user information or public an
 
 ## Keyword arguments
 
+The following keyword arguments exist with default values given in parentheses:
+
 - `create_known_hosts_entry`: Automatically create an entry in known hosts
 - `disable_verify_peer`: verify the authenticity of the peer's certificate
 - `disable_verify_host`: verify the host in the server's TLS certificate
 - `verbose`: display a lot of verbose curl information
-
-
-# Important notice
-
-A username must be provided for both methods to work.
-
-Before using the constructor method for certificate authentication, private and public
-key files must be created and stored in the ~/.ssh folder and on the server, e.g.
-~/.ssh/id_rsa and ~/.ssh/id_rsa.pub. Additionally, the host must be added to the
-known_hosts file in the ~/.ssh folder.
-
-The correct setup can be tested in the terminal with
-`ssh myuser@mysitewhereIhaveACertificate.com`.
-
 
 # Examples
 

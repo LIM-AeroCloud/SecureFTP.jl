@@ -13,6 +13,7 @@ makedocs(
     modules=[SFTP],
     authors="Peter Bräuer <pb866.git@gmail.com> and contributors",
     sitename="Julia SFTP Documentation",
+    checkdocs=:public,
     format=Documenter.HTML(;
         canonical="https://LIM-AeroCloud.github.io/SFTP.jl",
         edit_link="dev",
@@ -20,8 +21,11 @@ makedocs(
     ),
     pages=[
         "Home" => "index.md",
+        "Server" => "server.md",
+        "Filesystem" => "filesystem.md",
         "Troubleshooting" => "troubleshooting.md",
-        "Release notes" => "release-notes.md"
+        "Release notes" => "release-notes.md",
+        "Index" => "register.md"
     ]
 )
 

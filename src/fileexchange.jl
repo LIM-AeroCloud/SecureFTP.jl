@@ -180,11 +180,11 @@ end
 """
     download(fcn::Function, sftp::Client, src::AbstractString)
 
-Download `src` from the `sftp` server and use `fcn` to retrieve the data from `src`.`
+Download `src` from the `sftp` server and use `fcn` to retrieve the data from `src`.
 `src` may include an absolute or relative path to the file on the `sftp` server.
 Only temporary files are created on the local system and directly deleted after data reading.
 
-.. info:
+!!! info "Defining read functions"
     `fcn` must have one `AbstractString` parameter, which is used to pass the temporary file
     path to any function that reads the contents. The function must return the contents of the
     file in any desired format, e.g. Matrix, DataFrame or array.
@@ -201,7 +201,7 @@ matrix = download(fcsv, sftp, "data/matrix.csv")
 array = download(fread, sftp, "data/matrix.csv")
 ```
 """
-function Base.download(fcn::Function, sftp::Client, src::AbstractString; _test::Bool=false)
+function Base.download(fcn::Function, sftp::Client, src::AbstractString)
     mktempdir() do path
         # Check if src is a file
         isfile(sftp, src) || throw(Base.IOError("$src must be an existing file", 1))

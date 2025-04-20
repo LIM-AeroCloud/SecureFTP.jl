@@ -372,7 +372,8 @@ an `URI` with the updated path.
     The `uri` field of the `sftp` client remains unaffected by joinpath.
     Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` client.
 """
-Base.joinpath
+function Base.joinpath(::Client) end
+# Fix for docs: add Client to function signature for combined docstring and filtering of Base docstring
 Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
 Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path...)
 

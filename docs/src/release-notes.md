@@ -90,5 +90,3 @@ All changes for this released are documented in respect to this version.
 - Several fixes concerning the representation of paths (especially under Windows)
 - Symlinks are now recognised by `stat`/`statscan`
 - `walkdir` correctly follows symlinks
-
-
