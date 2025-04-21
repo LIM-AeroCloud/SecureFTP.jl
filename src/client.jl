@@ -7,15 +7,16 @@
 
 # Fields
 
-- `downloader::Downloader`
-- `uri::URI`
-- `username::String`
-- `password::String`
-- `disable_verify_peer::Bool`
-- `disable_verify_host::Bool`
-- `verbose::Bool`
-- `public_key_file::String`
-- `private_key_file::String`
+- `downloader::Downloader`: for handling downloads and managing connections, name lookups,
+  and other resources
+- `uri::URI`: save the URI including the present path on the sftp server
+- `username::String`: mandatory user name
+- `password::String`: optional password, for access by username/password
+- `disable_verify_peer::Bool`: disable verification of the peer's SSL certificate
+- `disable_verify_host::Bool`: disable verification of the certificate's name against host
+- `verbose::Bool`: set Curl verbosity
+- `public_key_file::String`: the public key file of the certificate authentication
+- `private_key_file::String`: the private key file of the certificate authentication
 
 # Constructors
 
@@ -23,19 +24,19 @@
     SFTP.Client(url::AbstractString, username::AbstractString, password::AbstractString=""; kwargs) -> SFTP.Client
 
 !!! note
-    A username must be provided for both methods to work.
+    A `username` must be provided for both methods to work.
 
 !!! warning "Setup certificate authentication"
     Before using the constructor method for certificate authentication, private and public
-    key files must be created and stored in the ~/.ssh folder and on the server, e.g.
-    ~/.ssh/id_rsa and ~/.ssh/id_rsa.pub. Additionally, the host must be added to the
-    known_hosts file in the ~/.ssh folder.
+    key files must be created and stored in the ~/.ssh folder and on the server and the
+    local system, respectively, e.g., ~/.ssh/id_rsa and ~/.ssh/id_rsa.pub. Additionally,
+    the host must be added to the known_hosts file in the ~/.ssh folder.
 
 !!! note "Testing certificate authentication"
     The correct setup can be tested in the terminal with
     `ssh myuser@mysitewhereIhaveACertificate.com`.
 
-Construct an `SFTP.Client` from the url and either user information or public and private key file.
+Construct an `SFTP.Client` from the url and either user information or public and private key files.
 
 ## Arguments
 
@@ -283,15 +284,15 @@ end
 
 
 """
-    change_uripath(sftp::Client, path::AbstractString...) -> URI
-    change_uripath(uri::URI, path::AbstractString; trailing_slash::Union{Bool,Nothing}=nothing) -> URI
+    change_uripath(sftp::SFTP.Client, path::AbstractString...) -> URI
+    change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing) -> URI
 
 Return an updated `uri` struct with the given `path`.
 When an `sftp` client is passed, a trailing slash will be added for directories and
 omitted otherwise. If a `uri` struct is passed, a `trailing_slash` is added or omitted,
 when the flag is `true`/`false`, or left unchanged, if `trailing_slash` is `nothing`.
 
-.. warning::
+!!! warning
     Determining directories for the method using the `sftp` client can be slow for large folders
     and is not recommended unless absolutely needed.
 """
@@ -428,7 +429,7 @@ end
 ## Helper functions Curl options
 
 """
-    set_stdopt(sftp::SFTP.Client, easy::Easy) -> Nothing
+    set_stdopt(sftp::SFTP.Client, easy::Easy)
 
 Set defaults for a number of curl `easy` options as defined by the `sftp` client.
 """
@@ -438,7 +439,7 @@ function set_stdopt(sftp::Client, easy::Easy)::Nothing
     isempty(sftp.password) || Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_PASSWORD, sftp.password)
     # Verifications
     sftp.disable_verify_host && Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_SSL_VERIFYHOST , 0)
-    sftp.disable_verify_peer && Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_SSL_VERIFYPEER , 1)
+    sftp.disable_verify_peer && Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_SSL_VERIFYPEER , 0)
     # Certificates
     isempty(sftp.public_key_file) || Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_SSH_PUBLIC_KEYFILE, sftp.public_key_file)
     isempty(sftp.private_key_file) || Downloads.Curl.setopt(easy, Downloads.Curl.CURLOPT_SSH_PRIVATE_KEYFILE, sftp.private_key_file)
@@ -449,7 +450,7 @@ end
 
 
 """
-    reset_easy_hook(sftp::SFTP.Client) -> Nothing
+    reset_easy_hook(sftp::SFTP.Client)
 
 Reset curl `easy` options to standard as defined by the `sftp` client.
 """
@@ -467,7 +468,7 @@ end
 
 
 """
-    istrue(x)::Bool
+    istrue(x) -> Bool
 
 Return `true` if x is a `Bool` and `true`, otherwise `false`.
 """
@@ -475,7 +476,7 @@ istrue(x)::Bool = x === true
 
 
 """
-    isfalse(x)::Bool
+    isfalse(x) -> Bool
 
 Return `true` if x is a `Bool` and `false`, otherwise `false`.
 """

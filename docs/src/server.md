@@ -16,9 +16,9 @@ SFTP.Client
 ## File exchange with the server
 
 Use the [`upload`](@ref) and [`download`](@ref) functions to exchange data with the
-SFTP server. Options exists for conflicts with already existing files to throw an
+SFTP server. Options exist for conflicts with already existing files to throw an
 error, skip the exchange or force an overwrite. The functions can be used to exchange
-single files, upload directories recursively or broadcast over a number of files or
+single files, exchange directories recursively or broadcast over a number of files or
 folders.
 
 For [`download`](@ref download(::Function, ::SFTP.Client, ::AbstractString)),

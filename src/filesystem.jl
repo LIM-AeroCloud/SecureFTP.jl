@@ -4,9 +4,13 @@
     pwd(sftp::SFTP.Client) -> String
     pwd(uri::SFTP.URI) -> String
 
-Return the current URI path of the SFTP `Client` or an `URI` struct.
-If a `SFTP.Client` is given, `pwd` checks whether the path is valid and throws an
+Get the current directory of the `uri` or the `sftp` server.
+If an `SFTP.Client` is given, `pwd` checks whether the path is valid and throws an
 `IOError` otherwise. For `URI` there are no validity checks.
+
+see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
+[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 Base.pwd
 
@@ -27,7 +31,11 @@ end
 """
     cd(sftp::SFTP.Client, dir::AbstractString)
 
-Change to `dir` in the uri of the `sftp` client.
+Set the current working directory as `dir` in the uri of the `sftp` client.
+
+see also: [`pwd`](@ref),
+[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 function Base.cd(sftp::Client, dir::AbstractString)::Nothing
     prev_url = sftp.uri
@@ -54,9 +62,12 @@ end
         force::Bool=false
     )
 
-Move `src` to `dst` in the uri of the `sftp` client.
-The parent folder `dst` is moved to must exist. The `src` is overwritten without
+Move `src` to `dst` on the `sftp` server.
+`dst` must be moved to an existing parent folder; `src` is overwritten without
 warning, if `force` is set to `true`.
+
+see also: [`pwd`](@ref), [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
+[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 function Base.mv(
     sftp::Client,
@@ -104,14 +115,17 @@ end
 
 
 """
-    rm(sftp::Client, path::AbstractString; recursive::Bool=false, force::Bool=false)
+    rm(sftp::SFTP.Client, path::AbstractString; recursive::Bool=false, force::Bool=false)
 
-Remove (delete) the `path` on the `sftp` client.
+Remove (delete) the `path` on the `sftp` server.
 Set the `recursive` flag to remove folders recursively.
 Suppress errors by setting `force` to `true`.
 
 !!! warning
     Recursive deletions can be very slow for large folders.
+
+see also: [`pwd`](@ref), [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
+[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false))
 """
 function Base.rm(sftp::Client, path::AbstractString; recursive::Bool=false, force::Bool=false)::Nothing
     if recursive
@@ -163,6 +177,8 @@ Create a new `dir` on the `sftp` server and return the name of the created direc
 Although a path can be given as `dir`, `dir` can only be created in an existing directory,
 i.e. the path up to the basename of `dir` must exist. Otherwise, and in case of already
 existing folders, an error is thrown.
+
+see also: [`mkpath`](@ref mkpath(::SFTP.Client, ::AbstractString))
 """
 function Base.mkdir(sftp::Client, dir::AbstractString)::String
     uripath = joinpath(sftp, dir) |> pwd
@@ -186,7 +202,10 @@ end
 """
     mkpath(sftp::SFTP.Client, path::AbstractString) -> String
 
-Create a `path` on the `sftp` client and return `path` as String on success.
+Create a `path` including all missing intermediate folders on the `sftp` server
+and return `path` as String on success. No errors are thrown for existing paths.
+
+See also: [`mkdir`](@ref mkdir(::SFTP.Client, ::AbstractString))
 """
 function Base.mkpath(sftp::Client, path::AbstractString)::String
     ftp_command(sftp, "mkdir '$(unescape_joinpath(sftp, path))'")
@@ -196,30 +215,32 @@ end
 
 """
     readdir(
-        sftp::SFTP.Client,
-        path::AbstractString = ".";
-        join::Bool = false,
-        sort::Bool = true,
-        check_path::Bool = false
+        sftp::Client,
+        path::AbstractString=".";
+        join::Bool=false,
+        sort::Bool=true,
+        check_path::Bool=false
     ) -> Vector{String}
 
-Read the current directory on the `sftp` client and return a vector of strings
-with the file names just like Julia's `readdir`.
-If `join` is set to `true`, the list of file names include the absolute path.
+Return the names of all objects in the directory `dir` (or the current working directory
+if not given) on the `sftp` server.
+If `join` is set to `true`, the list of file names includes the absolute paths.
 Sorting of file names can be switched off with the `sort` flag to optimise performance.
 Depending on the server settings, readdir may return an empty vector for non-existant paths.
 To ensure an error is thrown for non-existant paths, set `check_path` to `true`.
 
 !!! note
     Setting `check_path` to `true` can drastically reduce the performance for
-    large existing folders. If you know the folder structure, you should avoid setting this flag.
+    large folders. If you know the folder structure, you should avoid setting this flag.
+
+see also: [`walkdir`](@ref walkdir(::SFTP.Client,::AbstractString;kwargs...))
 """
 function Base.readdir(
     sftp::Client,
-    path::AbstractString = ".";
-    join::Bool = false,
-    sort::Bool = true,
-    check_path::Bool = false
+    path::AbstractString=".";
+    join::Bool=false,
+    sort::Bool=true,
+    check_path::Bool=false
 )::Vector{String}
     # Set path and optionally check validity
     uri = joinpath(sftp.uri, path, "")
@@ -242,6 +263,7 @@ function Base.readdir(
     return files
 end
 
+# ¡ internal method for test purposes !
 function Base.readdir(sftp::Client, path::AbstractString, __test__::AbstractString)
     isempty(__test__) && return readdir(sftp, path)
     isempty(path) && return readdir(sftp, __test__)
@@ -255,24 +277,31 @@ end
 
 """
     walkdir(
-        sftp::SFTP.Client,
+        sftp::Client,
         root::AbstractString=".";
         topdown::Bool=true,
         follow_symlinks::Bool=false,
         skip_restricted_access::Bool=true,
-        sort::Bool=true
+        sort::Bool=true,
+        ignore_hidden::Bool=false,
+        hide_identifier::Union{AbstractString,Char}='.'
     ) -> Channel{Tuple{String,Vector{String},Vector{String}}}
 
-Return an iterator that walks the directory tree of the given `root` on the `sftp` client.
-If the `root` is omitted, the current URI path of the `sftp` client is used.
+Return an iterator that walks the directory tree of the given `root` on the `sftp`
+server. If the `root` is omitted, the current URI path of the `sftp` server is used.
 The iterator returns a tuple containing `(rootpath, dirs, files)`.
-The iterator starts at the `root` unless `topdown` is set to `false`.
+The directory tree can be traversed top-down (`topdown=true`) or bottom-up (`topdown=false`).
 
 If `follow_symlinks` is set to `true`, the sources of symlinks are listed rather
 than the symlink itself as a file. If `sort` is set to `true`, the files and directories
-are listed alphabetically. If a remote folder has restricted access, these directories
-are skipped with an info output on the terminal unless `skip_restricted_access` is set
-to `false`, in which case an `Downloads.RequestError` is thrown.
+are listed alphabetically. Hidden paths starting with the `hide_identifier` sequence
+can be skipped by setting `ignore_hidden` to `true`.
+
+If a remote folder has restricted access, these directories are skipped with an info output
+on the terminal unless `skip_restricted_access` is set to `false`, in which case an
+`Downloads.RequestError` is thrown.
+
+see also: [`readdir`](@ref readdir(::SFTP.Client,::AbstractString;kwargs...))
 
 # Examples
 
@@ -362,15 +391,16 @@ end
 ## Path analysis and manipulation functions
 
 """
-    joinpath(sftp::SFTP.Client, path::AbstractString...; kwargs...) -> URI
-    joinpath(sftp::URI, path::AbstractString...; kwargs...) -> URI
+    joinpath(sftp::SFTP.Client, path::AbstractString...) -> URI
+    joinpath(sftp::URI, path::AbstractString...) -> URI
 
-Join any `path` with the uri of the `sftp` client or the `uri` directly and return
-an `URI` with the updated path.
+Join any `path` with the uri of the `sftp` server or the `uri` directly and return
+an `URI` with the updated path. Any `path` components prior to an absolute `path`
+are dropped.
 
 !!! note
     The `uri` field of the `sftp` client remains unaffected by joinpath.
-    Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` client.
+    Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` server.
 """
 function Base.joinpath(::Client) end
 # Fix for docs: add Client to function signature for combined docstring and filtering of Base docstring
@@ -379,33 +409,23 @@ Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path
 
 
 """
-    joinrootpath(root::AbstractString, parts::AbstractString...) -> String
-
-Join all path `parts` to the `root` path and return as `String`.
-The `parts` are joined to the `root` even if the yield an absolute path.
-
-!!! note
-    This is an internal version for testing mocked file uploads.
-    The `root` is expected to be a tempdir.
-"""
-function joinrootpath(root::AbstractString, parts::AbstractString...)::String
-    path = joinpath(parts...)
-    isempty(root) && return path
-    if isabspath(path)
-        path = splitpath(path)[2:end]
-        path = isempty(path) ? "" : joinpath(path...)
-    end
-    normpath(joinpath(root, path))
-end
-
-
-"""
     splitdir(uri::SFTP.URI, path::AbstractString=".") -> Tuple{URI,String}
     splitdir(sftp::SFTP.Client, path::AbstractString=".") -> Tuple{URI,String}
 
-Join the `path` with the path of the URI in `sftp` (or itself, if only a `URI`
-is given) and then split it into the directory name and base name. Return a Tuple
+Join the `path` with the path of the URI in `sftp` (or the `uri` itself) and then
+split it into the directory name and base name. Return a Tuple
 of `URI` with the split path and a `String` with the base name.
+
+!!! note
+    The returned path in the `URI` always contains a trailing slash while the
+    basename is always without a slash.
+
+!!! warning "Difference to Julia's splitdir method"
+    `splitdir` splits the last non-empty path part from the remaining `path`.
+    In contrast to Julia's `splitdir` method, trailing slashes do not result in
+    an empty base name, but return the base name before the trailing slash.
+
+see also: [`basename`](@ref)
 """
 Base.splitdir
 
@@ -429,12 +449,14 @@ Base.splitdir(sftp::Client, path::AbstractString=".")::Tuple{URI,String} = split
     basename(sftp::SFTP.Client, path::AbstractString=".") -> String
 
 Get the file name or current folder name of a `path`. The `path` can be absolute
-or relative to the `uri` or current directory of the `sftp` server given.
+or relative to the `uri` itself or of the `sftp` server given.
 If no `path` is given, the current path from the `uri` or `sftp` server is taken.
 
-!!! note
-    In contrast to Julias basename, trailing slashes in paths are ignored and the last
+!!! warning "Difference to Julia's basename method"
+    In contrast to Julia's basename, trailing slashes in paths are ignored and the last
     non-empty part is returned, except for the root, where the `basename` is empty.
+
+see also: [`splitdir`](@ref)
 """
 Base.basename
 Base.basename(uri::URI, path::AbstractString=".")::String = splitdir(uri, path)[2]
@@ -442,6 +464,27 @@ Base.basename(sftp::Client, path::AbstractString=".") = splitdir(sftp.uri, path)
 
 
 ## Helper functions for filesystem operations
+
+"""
+    joinrootpath(root::AbstractString, parts::AbstractString...) -> String
+
+Join all path `parts` to the `root` path and return as `String`.
+The `parts` are joined to the `root` even if they yield an absolute path.
+
+!!! note
+    This is an internal version for testing mocked file uploads.
+    The `root` is expected to be a tempdir.
+"""
+function joinrootpath(root::AbstractString, parts::AbstractString...)::String
+    path = joinpath(parts...)
+    isempty(root) && return path
+    if isabspath(path)
+        path = splitpath(path)[2:end]
+        path = isempty(path) ? "" : joinpath(path...)
+    end
+    normpath(joinpath(root, path))
+end
+
 
 """
     symlink_target!(

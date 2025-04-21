@@ -20,30 +20,12 @@ for more details on the `URI` struct.
 ```@docs
 pwd
 cd(::SFTP.Client, ::AbstractString)
-mv(
-    ::SFTP.Client,
-    ::AbstractString,
-    ::AbstractString;
-    force::Bool=false
-)
+mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)
 rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false)
 mkdir(::SFTP.Client, ::AbstractString)
 mkpath(::SFTP.Client, ::AbstractString)
-walkdir(
-    ::SFTP.Client,
-    ::AbstractString;
-    topdown::Bool=true,
-    follow_symlinks::Bool=false,
-    skip_restricted_access::Bool=true,
-    sort::Bool=true
-)
-readdir(
-    ::SFTP.Client,
-    ::AbstractString;
-    join::Bool = false,
-    sort::Bool = true,
-    check_path::Bool = false
-)
+readdir(::SFTP.Client, ::AbstractString; kwargs...)
+walkdir(::SFTP.Client, ::AbstractString; kwargs...)
 ```
 
 ## Analyse and manipulate server paths
@@ -59,7 +41,7 @@ splitdir
 The [`SFTP.StatStruct`](@ref) holds all relevant information on server path objects.
 It can be directly analysed by functions analysing the filemode ([`filemode`](@ref),
 [`isdir`](@ref), [`isfile`](@ref) or [`islink`](@ref)). For these functions, additional
-convenience methods exist, which take the `SFTP.Client` and a `AbstractString` of the
+convenience methods exist, which take the `SFTP.Client` and an `AbstractString` of the
 `path` as input arguments.
 
 !!! tip
@@ -68,7 +50,8 @@ convenience methods exist, which take the `SFTP.Client` and a `AbstractString` o
     rather than with the convenience functions to improve performance.  
     The convenience functions are mainly for single operations or when interactively
     exploring a server, but can mean significantly longer processing times for large
-    folders on the server.
+    folders on the server. Internally, the whole folder content is always scanned and
+    the stats for the desired files are then retrieved from all scans.
 
 ```@docs
 SFTP.StatStruct
@@ -76,7 +59,7 @@ SFTP.StatStruct
 
 ```@docs
 statscan
-stat(sftp::SFTP.Client, path::AbstractString=".")
+stat(sftp::SFTP.Client, ::AbstractString)
 filemode
 ispath(::SFTP.Client, ::AbstractString)
 isdir

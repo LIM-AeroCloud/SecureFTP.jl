@@ -1,31 +1,29 @@
 ## Server exchange functions
 
 """
-    upload(
-        sftp::Client,
-        src::AbstractString=".",
-        dst::AbstractString=".";
-        merge::Bool=false,
-        force::Bool=false,
-        ignore_hidden::Bool=false,
-        hide_identifier::Union{Char,AbstractString}='.'
-    ) -> String
+    upload(sftp::Client,  src::AbstractString=".", dst::AbstractString="."; kwargs...) -> String
 
-Upload (put) `src` to `dst` on the server; `src` can be a file or folder.
+Upload (put) `src` to `dst` on the `sftp` server; `src` can be a file or folder.
 Folders are uploaded recursively. `dst` must be an existing folder on the server,
 otherwise an `IOError` is thrown. `src` may include an absolute or relative path
 on the local system, which is ignored on the server. `dst` can be an absolute path
 or a path relative to the current uri path of the `sftp` server. The function returns
-`dst` as String.
+`dst` as `String`.
 
-If `merge` is set to `true`, the content of `src` is merged into any existing `dst`
-folder. If `force` is set to `true`, any existing path at `dst` on the `sftp` server is
-overwritten without warning. If both flags are set, `upload` first tries to mere folders
-and only overwrites files. If `ignore_hidden` is set to `true`, hidden files
-are omitted in the upload. The start sequence of `String` or `Char`, with which
-a hidden file starts, can be specified by the `hide_identifier`.
-By default it is assumed that hidden files start with a dot (`.`).
+see also: [`download`](@ref)/
+[`download method`](@ref download(::Function, ::SFTP.Client, ::AbstractString))
 
+
+# Keyword arguments
+
+- `merge::Bool=false`: download into existing folders, when `true` or throw an `IOError`
+- `force::Union{Nothing,Bool}=nothing`: Handle conflicts of existing files/folders
+  - `nothing` (default): throw `IOError` for conflicts
+  - `true`: overwrite existing files/folders
+  - `false`: skip existing files/folders
+  - if `merge = true`, `force` counts only for files
+- `ignore_hidden::Bool=false`: ignore hidden files and folders, if `true`
+- `hide_identifier::Union{Char,AbstractString}='.'`: start sequence of hidden files and folders
 
 # Examples
 
@@ -35,7 +33,7 @@ sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
 upload(sftp, "data/test.csv", "/tmp") # upload data/test.csv to /tmp/test.csv
 
 files=readdir()
-upload.(sftp, files) # all files of the current directory are uploaded to the current directory on the server
+upload.(sftp, files) # upload the current directory to the current directory on the server
 
 upload(sftp, ignore_hidden=true) # the current folder is uploaded to the server without hidden objects
 ```
@@ -89,15 +87,7 @@ end
 
 
 """
-    download(
-        sftp::Client,
-        src::AbstractString = ".",
-        dst::AbstractString = ".";
-        merge::Bool = false,
-        force::Union{Nothing,Bool} = nothing,
-        ignore_hidden::Bool = false,
-        hide_identifier::Union{Char,AbstractString} = '.'
-    ) -> String
+    download(sftp::Client, src::AbstractString=".", dst::AbstractString="."; kwargs...) -> String
 
 Download `src` from the `sftp` server to `dst` on the local system; `src` can be a file or folder.
 Folders are downloaded recursively. `dst` must be an existing folder on the local system,
@@ -105,7 +95,9 @@ otherwise an `IOError` is thrown. `src` may include an absolute or relative path
 on the `sftp` server, which is ignored on the local system. `dst` can be an absolute
 or relative path on the local system. The function returns `dst` as String.
 
-# kwargs
+see also: [`upload`](@ref), other [`download`](@ref download(::Function, ::SFTP.Client, ::AbstractString)) method
+
+# Keyword arguments
 
 - `merge::Bool=false`: download into existing folders, when `true` or throw an `IOError`
 - `force::Union{Nothing,Bool}=nothing`: Handle conflicts of existing files/folders
@@ -113,7 +105,7 @@ or relative path on the local system. The function returns `dst` as String.
   - `true`: overwrite existing files/folders
   - `false`: skip existing files/folders
   - if `merge = true`, `force` counts only for files
-- `ignore_hidden::Bool=false`: ignore hidden files and folders
+- `ignore_hidden::Bool=false`: ignore hidden files and folders, if `true`
 - `hide_identifier::Union{Char,AbstractString}='.'`: start sequence of hidden files and folders
 
 # Example
@@ -134,12 +126,12 @@ donwload(sftp) # downloads current folder on server to current directory on loca
 """
 function Base.download(
     sftp::Client,
-    src::AbstractString = ".",
-    dst::AbstractString = ".";
-    merge::Bool = false,
-    force::Union{Nothing,Bool} = nothing,
-    ignore_hidden::Bool = false,
-    hide_identifier::Union{Char,AbstractString} = '.'
+    src::AbstractString=".",
+    dst::AbstractString=".";
+    merge::Bool=false,
+    force::Union{Nothing,Bool}=nothing,
+    ignore_hidden::Bool=false,
+    hide_identifier::Union{Char,AbstractString}='.'
 )::String
     #* Check remote and local path
     base = basename(sftp, src)
@@ -178,11 +170,13 @@ end
 
 
 """
-    download(fcn::Function, sftp::Client, src::AbstractString)
+    download(fcn::Function, sftp::SFTP.Client, src::AbstractString)
 
 Download `src` from the `sftp` server and use `fcn` to retrieve the data from `src`.
-`src` may include an absolute or relative path to the file on the `sftp` server.
+`src` may include an absolute or relative path to a file on the `sftp` server.
 Only temporary files are created on the local system and directly deleted after data reading.
+
+see also: [`upload`](@ref), other [`download`](@ref) method
 
 !!! info "Defining read functions"
     `fcn` must have one `AbstractString` parameter, which is used to pass the temporary file
@@ -218,7 +212,7 @@ end
 
 """
     mkfolder(
-        [sftp::Client,]
+        [sftp::SFTP.Client,]
         path::AbstractString,
         dirs::Vector{<:AbstractString},
         conflicts::Vector{<:AbstractString},
@@ -296,7 +290,7 @@ end
 
 """
     upload_file(
-        sftp::Client,
+        sftp::SFTP.Client,
         src::AbstractString,
         dst::AbstractString,
         [files::Vector{<:AbstractString},
@@ -383,7 +377,7 @@ end
 
 """
     download_file(
-        sftp::Client,
+        sftp::SFTP.Client,
         src::URI,
         dst::AbstractString,
         [files::Vector{<:AbstractString},]

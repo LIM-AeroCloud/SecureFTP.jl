@@ -12,7 +12,7 @@ Changelog.generate(
 makedocs(
     modules=[SFTP],
     authors="Peter Bräuer <pb866.git@gmail.com> and contributors",
-    sitename="Julia SFTP Documentation",
+    sitename="SFTP.jl Documentation",
     checkdocs=:public,
     format=Documenter.HTML(;
         canonical="https://LIM-AeroCloud.github.io/SFTP.jl",
