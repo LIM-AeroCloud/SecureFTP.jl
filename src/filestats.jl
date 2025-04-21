@@ -8,19 +8,22 @@
         show_cwd_and_parent::Bool=false
     ) -> Vector{SFTP.StatStruct}
 
-Like `stat`, but returns a Vector of `SFTP.StatStruct` with filesystem stats
+Like [`stat`](@ref), but returns a Vector of [`SFTP.StatStruct`](@ref) with filesystem stats
 for all objects in the given `path`.
 
-** This should be preferred over `stat` for performance reasons. **
+!!! tip
+    **This should be preferred over [`stat`](@ref) for performance reasons.**
 
 !!! note
     You can only run this on directories.
 
-By default, the `SFTP.StatStruct` vector is sorted by the descriptions (`desc` fields).
-For large folder contents, `sort` can be set to `false` to increase performance, if the
-output order is irrelevant.
-If `show_cwd_and_parent` is set to `true`, the `SFTP.StatStruct` vector includes entries for
-`"."` and `".."` on position 1 and 2, respectively.
+By default, the [`SFTP.StatStruct`](@ref) vector is sorted by the descriptions
+(`desc` fields). For large folder contents, `sort` can be set to `false` to increase
+performance, if the output order is irrelevant. If `show_cwd_and_parent` is set to `true`,
+the [`SFTP.StatStruct`](@ref) vector includes entries for `"."` and `".."` on position
+1 and 2, respectively.
+
+see also: [`stat`](@ref stat(sftp::SFTP.Client, ::AbstractString))
 """
 function statscan(
     sftp::Client,
@@ -60,13 +63,16 @@ end
 """
     stat(sftp::SFTP.Client, path::AbstractString=".") -> SFTP.StatStruct
 
-Return the stat data for `path` on the `sftp` server.
+Return a [`SFTP.StatStruct`](@ref) with information about the `path`
+(file, directory or symlink) on the `sftp` server.
 
 !!! note
     This returns only stat data for one object, but stat data for all objects in
     the same folder is obtained internally. If you need stat data for more than object
-    in the same folder, use `statscan` for better performance and reduced connections
-    to the server.
+    in the same folder, use [`statscan`](@ref) for better performance and reduced
+    connections to the server.
+
+see also: [`statscan`](@ref)
 """
 function Base.stat(sftp::Client, path::AbstractString=".")::StatStruct
     # Split path in basename and remaining path
@@ -86,27 +92,32 @@ end
 const PERFORMANCE_NOTICE = """
 A convenience method exists to directly check the `path` on the `sftp` server.
 However, if several path objects in the same folder are analysed, it is much more
-performant to use `statscan` once and then analyse each `SFTP.StatStruct`.
+performant to use [`statscan`](@ref) once and then analyse each [`SFTP.StatStruct`](@ref).
 """
 
 """
-    filemode(sftp::SFTP.Client, path::AbstractString = ".") -> UInt
+    filemode(sftp::SFTP.Client, path::AbstractString=".") -> UInt
     filemode(st::SFTP.StatStruct) -> UInt
 
-Return the filemode of the `SFTP.StatStruct`. $PERFORMANCE_NOTICE
+Return the filemode of the [`SFTP.StatStruct`](@ref). $PERFORMANCE_NOTICE
+
+see also: [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+[`isdir`](@ref), [`isfile`](@ref), [`islink`](@ref)
 """
 Base.filemode
 Base.filemode(st::StatStruct)::UInt = st.mode
-Base.filemode(sftp::Client, path::AbstractString = ".")::UInt = stat(sftp, path).mode
+Base.filemode(sftp::Client, path::AbstractString=".")::UInt = stat(sftp, path).mode
 
 
 """
-    ispath(sftp::Client, path::AbstractString = ".") -> Bool
+    ispath(sftp::SFTP.Client, path::AbstractString=".") -> Bool
 
 Return `true`, if a `path` exists on the `sftp` server, i.e. is a file, folder or link.
-Otherwise, reture `false`.
+Otherwise, return `false`.
+
+see also: [`filemode`](@ref), [`isdir`](@ref), [`isfile`](@ref), [`islink`](@ref)
 """
-Base.ispath(sftp::Client, path::AbstractString = ".")::Bool = try
+Base.ispath(sftp::Client, path::AbstractString=".")::Bool = try
     stat(sftp, path)
     true
 catch
@@ -115,36 +126,45 @@ end
 
 
 """
-    isdir(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
+    isdir(sftp::SFTP.Client, path::AbstractString=".") -> Bool
     isdir(st::SFTP.StatStruct) -> Bool
 
-Analyse the `SFTP.StatStruct` and return `true` for a directory, `false` otherwise.
+Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a directory, `false` otherwise.
 $PERFORMANCE_NOTICE
+
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+[`isfile`](@ref), [`islink`](@ref)
 """
 Base.isdir
 Base.isdir(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0x4000
-Base.isdir(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0x4000
+Base.isdir(sftp::Client, path::AbstractString=".")::Bool = filemode(sftp, path) & 0xf000 == 0x4000
 
 
 """
-    isfile(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
+    isfile(sftp::SFTP.Client, path::AbstractString=".") -> Bool
     isfile(st::SFTP.StatStruct) -> Bool
 
-Analyse the `SFTP.StatStruct` and return `true` for a file, `false` otherwise.
+Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a file, `false` otherwise.
 $PERFORMANCE_NOTICE
+
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+[`isdir`](@ref), [`islink`](@ref)
 """
 Base.isfile
 Base.isfile(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0x8000
-Base.isfile(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0x8000
+Base.isfile(sftp::Client, path::AbstractString=".")::Bool = filemode(sftp, path) & 0xf000 == 0x8000
 
 
 """
-    islink(sftp::SFTP.Client, path::AbstractString = ".") -> Bool
+    islink(sftp::SFTP.Client, path::AbstractString=".") -> Bool
     islink(st::SFTP.StatStruct) -> Bool
 
-Analyse the `SFTP.StatStruct` and return `true` for a symbolic link, `false` otherwise.
+Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a symbolic link, `false` otherwise.
 $PERFORMANCE_NOTICE
+
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+[`isdir`](@ref), [`isfile`](@ref)
 """
 Base.islink
 Base.islink(st::StatStruct)::Bool = filemode(st) & 0xf000 == 0xa000
-Base.islink(sftp::Client, path::AbstractString = ".")::Bool = filemode(sftp, path) & 0xf000 == 0xa000
+Base.islink(sftp::Client, path::AbstractString=".")::Bool = filemode(sftp, path) & 0xf000 == 0xa000

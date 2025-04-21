@@ -1,47 +1,44 @@
-# Julia SFTP Client 
+# SFTP.jl
 
 *An SFTP Client for Julia.*
 
-A julia package for communicating with SFTP Servers, supporting username and password, or certificate authentication. 
+_SFTP.jl_ is a pure Julia package for connecting to servers with the secure file
+transfer protocol (SFTP), supporting authentication by username and password or
+by certificates. Main purpose is the file exchange between the SFTP server and the
+local system. Basic file system functions similar to Julia's Base functions and
+to the typical Linux functionality exist to explore the SFTP server.
 
-## SFTP Features
+## SFTP Feature overview
 
-    - readdir
-    - download
-    - upload 
-    - cd
-    - rm 
-    - rmdir
-    - mkpath
-    - mv
-    - sftpstat (like stat, but more limited)
+- Connection to SFTP server by username/password or with certificate authentication
+- File [`upload`](@ref)/[`download`](@ref) to/from server
+- Inspect the server with file system functions like [`walkdir`](@ref), [`readdir`](@ref),
+  [`stat`](@ref)/[`statscan`](@ref), [`filemode`](@ref), [`ispath`](@ref), [`isdir`](@ref),
+  [`isfile`](@ref), [`islink`](@ref)
+- Navigate and manipulate server content with functions like [`pwd`](@ref), [`cd`](@ref),
+  [`mv`](@ref), [`rm`](@ref), [`mkdir`](@ref), [`mkpath`](@ref)
+- Create script with the help of further filesystem functions like [`joinpath`](@ref),
+  [`basename`](@ref) or [`splitdir`](@ref)
 
 ## SFTP Installation
 
-Install by running:
+Install using the package manager:
 
-import Pkg;Pkg.add("SFTP")
+```julia
+julia> ]
 
-## SFTP Examples
-
+pkg> add SFTP
 ```
 
-    using SFTP
-    sftp = SFTP("sftp://test.rebex.net/pub/example/", "demo", "password")
-    files=readdir(sftp)
-    # On Windows, replace this with an appropriate path
-    downloadDir="/tmp/"
-    SFTP.download.(sftp, files, downloadDir=downloadDir)
+## Contents
 
-```
-
-```
-    #You can also use it like this
-    df=DataFrame(CSV.File(SFTP.download(sftp, "/mydir/test.csv")))
-
-    # For certificate authentication, you can do this (since 0.3.8)
-    sftp = SFTP("sftp://mysitewhereIhaveACertificate.com", "myuser", "cert.pub", "cert.pem")
-   
-    # The cert.pem is your certificate (private key), and the cert.pub can be obtained from the private # key as following: ssh-keygen -y  -f ./cert.pem. Save the output into "cert.pub". 
-
+```@contents
+Pages = [
+    "index.md",
+    "server.md",
+    "filesystem.md",
+    "troubleshooting.md",
+    "release-notes.md",
+    "register.md"
+]
 ```

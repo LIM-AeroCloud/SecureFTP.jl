@@ -1,47 +1,60 @@
-# Julia SFTP Client 
+# Julia SFTP Client
 
-Package for working with SFTP in Julia. Built on Downloads.jl, but in my opinion much easier to use. Downloads.jl is in turn based on Curl. 
+A Julia SFTP Client for exploring the structure and contents of SFTP servers and
+exchanging files.
 
-The Julia SFTP client supports username/password as well as certificates for authentication. 
+## Overview
 
-The following methods are supported: readdir, download, upload, cd, rm, rmdir, mkdir, mv, sftpstat
-(like stat)
+This package is based on [SFTPClient.jl](https://github.com/stensmo/SFTPClient.jl.git)
+and builds on [Downloads.jl](https://github.com/JuliaLang/Downloads.jl.git) and
+[LibCurl.jl](https://github.com/JuliaWeb/LibCURL.jl.git).
 
+_SFTP.jl_ supports username/password as well as certificates for authentication.
+It provides methods to exchange files with the SFTP server as well as investigate the
+folder structure and files with methods based on 
+[Julia's Filesystem functions](https://docs.julialang.org/en/v1/base/file/).
+Details can be found in the [documentation](docs-dev-url).
 
+| **Documentation**                                                                  | **Build Status**                                                            |
+|:----------------------------------------------------------------------------------:|:---------------------------------------------------------------------------:|
+| [![Stable][docs-stable-img]][docs-stable-url] [![Dev][docs-dev-img]][docs-dev-url] | [![Build Status][CI-img]][CI-url] [![Coverage][codecov-img]][codecov-url] |
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://LIM-AeroCloud.github.io/SFTP.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://LIM-AeroCloud.github.io/SFTP.jl/dev/)
-[![Build Status](https://github.com/LIM-AeroCloud/SFTP.jl/actions/workflows/CI.yml/badge.svg?branch=dev)](https://github.com/LIM-AeroCloud/SFTP.jl/actions/workflows/CI.yml?query=branch%3Adev)
-[![Coverage](https://codecov.io/gh/LIM-AeroCloud/SFTP.jl/branch/dev/graph/badge.svg)](https://codecov.io/gh/LIM-AeroCloud/SFTP.jl)
+## Showcase
 
- 
-
-Examples:
+```julia
+using SFTP
+# Set up client for connection to server
+sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+# Analyse contents of current path
+files=readdir(sftp)
+statStructs = statscan(sftp)
+# Download contents
+download.(sftp, files)
 ```
 
-    using SFTP
-    sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
-    files=readdir(sftp)
-    # On Windows, replace this with an appropriate path
-    downloadDir="/tmp/"
-    download.(sftp, files, downloadDir=downloadDir)
+```julia
+using SFTP
+# You can also load file contents to a variable by passing a function to download as first argument
+# Note: the function must an AbstractString as parameter for a temporary path of the downloaded file
+# Note: the path will be deleted immediately after the contents are saved to the variable
+fread(path::AbstractString)::Vector{String} = readlines(path)
+array = download(fread, sftp, "data/matrix.csv")
 
-    statStructs = statscan(sftp)
-
-```
-   
-  
-    
-```
-    #You can also use it like this
-    df=DataFrame(CSV.File(download(sftp, "/mydir/test.csv")))
-    # For certificates you can use this for setting it up
-    sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser")
-    # Since 0.3.8 you can also do this
-    sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser", "cert.pub", "cert.pem") # Assumes cert.pub and cert.pem is in your current path
-    # The cert.pem is your certificate (private key), and the cert.pub can be obtained from the private key.
-    # ssh-keygen -y  -f ./cert.pem. Save the output into "cert.pub". 
-
+# Certificate authentication works as well
+sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser")
+sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser", "cert.pub", "cert.pem") # Assumes cert.pub and cert.pem is in your current path
+# The cert.pem is your certificate (private key), and the cert.pub can be obtained from the private key.
+# ssh-keygen -y  -f ./cert.pem. Save the output into "cert.pub". 
 ```
 
-[API Documentation](https://stensmo.github.io/SFTP.jl/stable/reference/)
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://LIM-AeroCloud.github.io/SFTP.jl/stable/
+
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-dev-url]: https://LIM-AeroCloud.github.io/SFTP.jl/dev/
+
+[CI-img]: https://github.com/LIM-AeroCloud/SFTP.jl/actions/workflows/CI.yml/badge.svg?branch=dev
+[CI-url]: https://github.com/LIM-AeroCloud/SFTP.jl/actions/workflows/CI.yml?query=branch%3Adev
+
+[codecov-img]: https://codecov.io/gh/LIM-AeroCloud/SFTP.jl/graph/badge.svg?token=kYZK3bRvCZ
+[codecov-url]: https://codecov.io/gh/LIM-AeroCloud/SFTP.jl
