@@ -1,14 +1,14 @@
-# SFTP.jl
+# SecureFTP.jl
 
 *An SFTP Client for Julia.*
 
-_SFTP.jl_ is a pure Julia package for connecting to servers with the secure file
+_SecureFTP.jl_ is a pure Julia package for connecting to servers with the secure file
 transfer protocol (SFTP), supporting authentication by username and password or
 by certificates. Main purpose is the file exchange between the SFTP server and the
 local system. Basic file system functions similar to Julia's Base functions and
 to the typical Linux functionality exist to explore the SFTP server.
 
-## SFTP Feature overview
+## SecureFTP Feature overview
 
 - Connection to SFTP server by username/password or with certificate authentication
 - File [`upload`](@ref)/[`download`](@ref) to/from server
@@ -20,14 +20,14 @@ to the typical Linux functionality exist to explore the SFTP server.
 - Create script with the help of further filesystem functions like [`joinpath`](@ref),
   [`basename`](@ref) or [`splitdir`](@ref)
 
-## SFTP Installation
+## SecureFTP Installation
 
 Install using the package manager:
 
 ```julia
 julia> ]
 
-pkg> add SFTP
+pkg> add SecureFTP
 ```
 
 ## Contents

@@ -1,22 +1,22 @@
-using SFTP
+using SecureFTP
 using Test
 
 ## Setup
 include("setup.jl")
-sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+sftp = SecureFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 stats = statscan(sftp)
 files = readdir(sftp)
 
 
 ## Test Connection to server
 @testset "Connect Test" begin
-    sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    sftp = SecureFTP.Client("sftp://test.rebex.net", "demo", "password")
     @test sftp.uri.path == "/"
     @test sftp.username == "demo"
     @test sftp.password == "password"
-    sftp = SFTP.Client("sftp://test.rebex.net/foo/bar", "demo", "password")
+    sftp = SecureFTP.Client("sftp://test.rebex.net/foo/bar", "demo", "password")
     @test sftp.uri.path == "/foo/bar"
-    sftp = SFTP.Client("sftp://test.rebex.net/foo/bar/", "demo", "password")
+    sftp = SecureFTP.Client("sftp://test.rebex.net/foo/bar/", "demo", "password")
     @test sftp.uri.path == "/foo/bar/"
     test_known_hosts()
 end
@@ -30,29 +30,29 @@ wd_bu = collect(walkdir(sftp, "/", topdown=false))
 wd_closed = walkdir(sftp, "/pub/example/readme.txt")
 
 @testset "filesystem" begin
-    sftp_root = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    sftp_root = SecureFTP.Client("sftp://test.rebex.net", "demo", "password")
     @test sftp_root.uri.path == "/"
     @test pwd(sftp_root) == "/"
     cd(sftp_root, "pub/example")
     @test sftp_root.uri.path == sftp.uri.path
     @test pwd(sftp) == "/pub/example/"
     @test basename(sftp.uri) == "example"
-    @test SFTP.unescape_joinpath(sftp, "unescaped dir") == "/pub/example/unescaped dir"
+    @test SecureFTP.unescape_joinpath(sftp, "unescaped dir") == "/pub/example/unescaped dir"
     @test files == wd_target[3]
     @test dirs == ["example"]
     @test wd[3][3] == wd_target[3]
     @test_throws Base.IOError cd(sftp, "foo")
     @test_throws Base.IOError mv(sftp, "foo", "bar")
-    @test_throws SFTP.Downloads.RequestError mv(sftp, "/pub/example", "foo")
+    @test_throws SecureFTP.Downloads.RequestError mv(sftp, "/pub/example", "foo")
     @test_throws Base.IOError rm(sftp, "/pub/example")
     @test_nowarn rm(sftp, "/pub/example/KeyGenerator.png", recursive=true, force=true)
     @test_throws Base.IOError mkdir(sftp, "foo/bar")
     @test_throws Base.IOError mkdir(sftp, "/pub")
-    @test_throws SFTP.Downloads.RequestError mkdir(sftp, "/pub/example/foo")
-    @test_throws SFTP.Downloads.RequestError mkpath(sftp, "/pub/example/foo")
+    @test_throws SecureFTP.Downloads.RequestError mkdir(sftp, "/pub/example/foo")
+    @test_throws SecureFTP.Downloads.RequestError mkpath(sftp, "/pub/example/foo")
     @test wd_closed.state == :closed
-    sftp_err = SFTP.Client("sftp://test.rebex.net", "demo", "pass")
-    @test_throws SFTP.Downloads.RequestError walkdir(sftp_err)
+    sftp_err = SecureFTP.Client("sftp://test.rebex.net", "demo", "pass")
+    @test_throws SecureFTP.Downloads.RequestError walkdir(sftp_err)
     @test wd_bu == wd_bottomup
     sftp.uri = URI("sftp://test.rebex.net")
     @test sftp.uri.path == ""
@@ -61,8 +61,8 @@ end
 
 ## Test everything possible about structs and stat that is not already covered
 # Prepare tests
-sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
-linkstat = SFTP.StatStruct("foo -> path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
+sftp = SecureFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+linkstat = SecureFTP.StatStruct("foo -> path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
 io = IOBuffer()
 show(io, sftp)
 res = String(take!(io))
@@ -72,13 +72,13 @@ res = String(take!(io))
     @test stats[1] == target_structs[1]
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
-    @test res == "SFTP.Client(\"demo@test.rebex.net\")\n"
+    @test res == "SecureFTP.Client(\"demo@test.rebex.net\")\n"
     @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[1]) == true
     @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[2]) == false
-    @test SFTP.parse_mode("lxxxxx-x--") == 0xa1f4
-    @test_nowarn SFTP.parse_mode("dx--x--x--")
-    @test_throws ArgumentError SFTP.parse_mode("dx--x----")
-    @test_throws ArgumentError SFTP.parse_mode("dx--x--x---")
+    @test SecureFTP.parse_mode("lxxxxx-x--") == 0xa1f4
+    @test_nowarn SecureFTP.parse_mode("dx--x--x--")
+    @test_throws ArgumentError SecureFTP.parse_mode("dx--x----")
+    @test_throws ArgumentError SecureFTP.parse_mode("dx--x--x---")
     @test ispath(sftp, "/pub") == true
     @test ispath(sftp, "foo") == false
     st = stat(sftp, "/pub/example/KeyGenerator.png")
@@ -92,27 +92,27 @@ end
 uri = URI("sftp://test.com/root/path")
 @testset "path changes" begin
     @testset "URI" begin
-        @test SFTP.change_uripath(uri, "newpath") == URI("sftp://test.com/root/path/newpath")
-        @test SFTP.change_uripath(uri, "newpath/") == URI("sftp://test.com/root/path/newpath/")
-        @test SFTP.change_uripath(uri, "/newroot") == URI("sftp://test.com/newroot")
-        @test SFTP.change_uripath(uri, "/newroot/") == URI("sftp://test.com/newroot/")
-        @test SFTP.change_uripath(uri, "/newroot", "and", "path") == URI("sftp://test.com/newroot/and/path")
-        @test SFTP.change_uripath(uri, "new", "path", "parts") == URI("sftp://test.com/root/path/new/path/parts")
-        @test SFTP.change_uripath(uri, "/newroot", "path", "/secondroot") == URI("sftp://test.com/secondroot")
-        @test SFTP.change_uripath(uri, "/newroot", trailing_slash=true) == URI("sftp://test.com/newroot/")
-        @test SFTP.change_uripath(uri, "/newroot", trailing_slash=false) == URI("sftp://test.com/newroot")
-        @test SFTP.change_uripath(uri, "/newroot/", trailing_slash=true) == URI("sftp://test.com/newroot/")
-        @test SFTP.change_uripath(uri, "/newroot/", trailing_slash=false) == URI("sftp://test.com/newroot")
+        @test SecureFTP.change_uripath(uri, "newpath") == URI("sftp://test.com/root/path/newpath")
+        @test SecureFTP.change_uripath(uri, "newpath/") == URI("sftp://test.com/root/path/newpath/")
+        @test SecureFTP.change_uripath(uri, "/newroot") == URI("sftp://test.com/newroot")
+        @test SecureFTP.change_uripath(uri, "/newroot/") == URI("sftp://test.com/newroot/")
+        @test SecureFTP.change_uripath(uri, "/newroot", "and", "path") == URI("sftp://test.com/newroot/and/path")
+        @test SecureFTP.change_uripath(uri, "new", "path", "parts") == URI("sftp://test.com/root/path/new/path/parts")
+        @test SecureFTP.change_uripath(uri, "/newroot", "path", "/secondroot") == URI("sftp://test.com/secondroot")
+        @test SecureFTP.change_uripath(uri, "/newroot", trailing_slash=true) == URI("sftp://test.com/newroot/")
+        @test SecureFTP.change_uripath(uri, "/newroot", trailing_slash=false) == URI("sftp://test.com/newroot")
+        @test SecureFTP.change_uripath(uri, "/newroot/", trailing_slash=true) == URI("sftp://test.com/newroot/")
+        @test SecureFTP.change_uripath(uri, "/newroot/", trailing_slash=false) == URI("sftp://test.com/newroot")
     end
     @testset "Client" begin
-        @test SFTP.change_uripath(sftp, "/pub") == URI("sftp://test.rebex.net/pub/")
-        @test SFTP.change_uripath(sftp, "/pub", "example") == URI("sftp://test.rebex.net/pub/example/")
-        @test SFTP.change_uripath(sftp, "/pub/example") == URI("sftp://test.rebex.net/pub/example/")
-        @test SFTP.change_uripath(sftp, "/pub/example", "KeyGenerator.png") == URI("sftp://test.rebex.net/pub/example/KeyGenerator.png")
-        @test SFTP.change_uripath(sftp, "..") == URI("sftp://test.rebex.net/pub/")
-        @test_throws Base.IOError SFTP.change_uripath(sftp, "/foo")
+        @test SecureFTP.change_uripath(sftp, "/pub") == URI("sftp://test.rebex.net/pub/")
+        @test SecureFTP.change_uripath(sftp, "/pub", "example") == URI("sftp://test.rebex.net/pub/example/")
+        @test SecureFTP.change_uripath(sftp, "/pub/example") == URI("sftp://test.rebex.net/pub/example/")
+        @test SecureFTP.change_uripath(sftp, "/pub/example", "KeyGenerator.png") == URI("sftp://test.rebex.net/pub/example/KeyGenerator.png")
+        @test SecureFTP.change_uripath(sftp, "..") == URI("sftp://test.rebex.net/pub/")
+        @test_throws Base.IOError SecureFTP.change_uripath(sftp, "/foo")
     end
-    @test_throws Base.IOError SFTP.findbase(target_structs, "foo", "bar")
+    @test_throws Base.IOError SecureFTP.findbase(target_structs, "foo", "bar")
 end
 
 ## Test file exchange

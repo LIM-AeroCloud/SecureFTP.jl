@@ -11,7 +11,7 @@ or a path relative to the current uri path of the `sftp` server. The function re
 `dst` as `String`.
 
 see also: [`download`](@ref)/
-[`download method`](@ref download(::Function, ::SFTP.Client, ::AbstractString))
+[`download method`](@ref download(::Function, ::SecureFTP.Client, ::AbstractString))
 
 
 # Keyword arguments
@@ -28,7 +28,7 @@ see also: [`download`](@ref)/
 # Examples
 
 ```julia
-sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+sftp = SecureFTP.Client("sftp://test.rebex.net", "demo", "password")
 
 upload(sftp, "data/test.csv", "/tmp") # upload data/test.csv to /tmp/test.csv
 
@@ -95,7 +95,7 @@ otherwise an `IOError` is thrown. `src` may include an absolute or relative path
 on the `sftp` server, which is ignored on the local system. `dst` can be an absolute
 or relative path on the local system. The function returns `dst` as String.
 
-see also: [`upload`](@ref), other [`download`](@ref download(::Function, ::SFTP.Client, ::AbstractString)) method
+see also: [`upload`](@ref), other [`download`](@ref download(::Function, ::SecureFTP.Client, ::AbstractString)) method
 
 # Keyword arguments
 
@@ -111,7 +111,7 @@ see also: [`upload`](@ref), other [`download`](@ref download(::Function, ::SFTP.
 # Example
 
 ```julia
-sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+sftp = SecureFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 files=readdir(sftp)
 download_dir="/tmp"
 download.(sftp, files, download_dir)
@@ -120,7 +120,7 @@ download.(sftp, files, download_dir)
 Alternatively:
 
 ```julia
-sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+sftp = SecureFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 donwload(sftp) # downloads current folder on server to current directory on local system
 ```
 """
@@ -170,7 +170,7 @@ end
 
 
 """
-    download(fcn::Function, sftp::SFTP.Client, src::AbstractString)
+    download(fcn::Function, sftp::SecureFTP.Client, src::AbstractString)
 
 Download `src` from the `sftp` server and use `fcn` to retrieve the data from `src`.
 `src` may include an absolute or relative path to a file on the `sftp` server.
@@ -212,7 +212,7 @@ end
 
 """
     mkfolder(
-        [sftp::SFTP.Client,]
+        [sftp::SecureFTP.Client,]
         path::AbstractString,
         dirs::Vector{<:AbstractString},
         conflicts::Vector{<:AbstractString},
@@ -290,7 +290,7 @@ end
 
 """
     upload_file(
-        sftp::SFTP.Client,
+        sftp::SecureFTP.Client,
         src::AbstractString,
         dst::AbstractString,
         [files::Vector{<:AbstractString},
@@ -377,7 +377,7 @@ end
 
 """
     download_file(
-        sftp::SFTP.Client,
+        sftp::SecureFTP.Client,
         src::URI,
         dst::AbstractString,
         [files::Vector{<:AbstractString},]

@@ -1,16 +1,16 @@
 ## Base filesystem functions
 
 """
-    pwd(sftp::SFTP.Client) -> String
-    pwd(uri::SFTP.URI) -> String
+    pwd(sftp::SecureFTP.Client) -> String
+    pwd(uri::URI) -> String
 
 Get the current directory of the `uri` or the `sftp` server.
-If an `SFTP.Client` is given, `pwd` checks whether the path is valid and throws an
+If an `SecureFTP.Client` is given, `pwd` checks whether the path is valid and throws an
 `IOError` otherwise. For `URI` there are no validity checks.
 
-see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
-[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
-[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
+see also: [`cd`](@ref cd(::SecureFTP.Client, ::AbstractString)),
+[`mv`](@ref mv(::SecureFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+[`rm`](@ref rm(::SecureFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 Base.pwd
 
@@ -29,13 +29,13 @@ end
 
 
 """
-    cd(sftp::SFTP.Client, dir::AbstractString)
+    cd(sftp::SecureFTP.Client, dir::AbstractString)
 
 Set the current working directory as `dir` in the uri of the `sftp` client.
 
 see also: [`pwd`](@ref),
-[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
-[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
+[`mv`](@ref mv(::SecureFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+[`rm`](@ref rm(::SecureFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 function Base.cd(sftp::Client, dir::AbstractString)::Nothing
     prev_url = sftp.uri
@@ -56,7 +56,7 @@ end
 
 """
     mv(
-        sftp::SFTP.Client,
+        sftp::SecureFTP.Client,
         src::AbstractString,
         dst::AbstractString;
         force::Bool=false
@@ -66,8 +66,8 @@ Move `src` to `dst` on the `sftp` server.
 `dst` must be moved to an existing parent folder; `src` is overwritten without
 warning, if `force` is set to `true`.
 
-see also: [`pwd`](@ref), [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
-[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
+see also: [`pwd`](@ref), [`cd`](@ref cd(::SecureFTP.Client, ::AbstractString)),
+[`rm`](@ref rm(::SecureFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
 function Base.mv(
     sftp::Client,
@@ -115,7 +115,7 @@ end
 
 
 """
-    rm(sftp::SFTP.Client, path::AbstractString; recursive::Bool=false, force::Bool=false)
+    rm(sftp::SecureFTP.Client, path::AbstractString; recursive::Bool=false, force::Bool=false)
 
 Remove (delete) the `path` on the `sftp` server.
 Set the `recursive` flag to remove folders recursively.
@@ -124,8 +124,8 @@ Suppress errors by setting `force` to `true`.
 !!! warning
     Recursive deletions can be very slow for large folders.
 
-see also: [`pwd`](@ref), [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
-[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false))
+see also: [`pwd`](@ref), [`cd`](@ref cd(::SecureFTP.Client, ::AbstractString)),
+[`mv`](@ref mv(::SecureFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false))
 """
 function Base.rm(sftp::Client, path::AbstractString; recursive::Bool=false, force::Bool=false)::Nothing
     if recursive
@@ -171,14 +171,14 @@ end
 
 
 """
-    mkdir(sftp::SFTP.Client, dir::AbstractString) -> String
+    mkdir(sftp::SecureFTP.Client, dir::AbstractString) -> String
 
 Create a new `dir` on the `sftp` server and return the name of the created directory.
 Although a path can be given as `dir`, `dir` can only be created in an existing directory,
 i.e. the path up to the basename of `dir` must exist. Otherwise, and in case of already
 existing folders, an error is thrown.
 
-see also: [`mkpath`](@ref mkpath(::SFTP.Client, ::AbstractString))
+see also: [`mkpath`](@ref mkpath(::SecureFTP.Client, ::AbstractString))
 """
 function Base.mkdir(sftp::Client, dir::AbstractString)::String
     uripath = joinpath(sftp, dir) |> pwd
@@ -200,12 +200,12 @@ end
 
 
 """
-    mkpath(sftp::SFTP.Client, path::AbstractString) -> String
+    mkpath(sftp::SecureFTP.Client, path::AbstractString) -> String
 
 Create a `path` including all missing intermediate folders on the `sftp` server
 and return `path` as String on success. No errors are thrown for existing paths.
 
-See also: [`mkdir`](@ref mkdir(::SFTP.Client, ::AbstractString))
+See also: [`mkdir`](@ref mkdir(::SecureFTP.Client, ::AbstractString))
 """
 function Base.mkpath(sftp::Client, path::AbstractString)::String
     ftp_command(sftp, "mkdir '$(unescape_joinpath(sftp, path))'")
@@ -233,7 +233,7 @@ To ensure an error is thrown for non-existant paths, set `check_path` to `true`.
     Setting `check_path` to `true` can drastically reduce the performance for
     large folders. If you know the folder structure, you should avoid setting this flag.
 
-see also: [`walkdir`](@ref walkdir(::SFTP.Client,::AbstractString;kwargs...))
+see also: [`walkdir`](@ref walkdir(::SecureFTP.Client,::AbstractString;kwargs...))
 """
 function Base.readdir(
     sftp::Client,
@@ -301,12 +301,12 @@ If a remote folder has restricted access, these directories are skipped with an 
 on the terminal unless `skip_restricted_access` is set to `false`, in which case an
 `Downloads.RequestError` is thrown.
 
-see also: [`readdir`](@ref readdir(::SFTP.Client,::AbstractString;kwargs...))
+see also: [`readdir`](@ref readdir(::SecureFTP.Client,::AbstractString;kwargs...))
 
 # Examples
 
 ```julia
-sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
+sftp = SecureFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 for (root, dirs, files) in walkdir(sftp, "/")
     println("Directories in \$root")
     for dir in dirs
@@ -391,7 +391,7 @@ end
 ## Path analysis and manipulation functions
 
 """
-    joinpath(sftp::SFTP.Client, path::AbstractString...) -> URI
+    joinpath(sftp::SecureFTP.Client, path::AbstractString...) -> URI
     joinpath(sftp::URI, path::AbstractString...) -> URI
 
 Join any `path` with the uri of the `sftp` server or the `uri` directly and return
@@ -409,8 +409,8 @@ Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path
 
 
 """
-    splitdir(uri::SFTP.URI, path::AbstractString=".") -> Tuple{URI,String}
-    splitdir(sftp::SFTP.Client, path::AbstractString=".") -> Tuple{URI,String}
+    splitdir(uri::URI, path::AbstractString=".") -> Tuple{URI,String}
+    splitdir(sftp::SecureFTP.Client, path::AbstractString=".") -> Tuple{URI,String}
 
 Join the `path` with the path of the URI in `sftp` (or the `uri` itself) and then
 split it into the directory name and base name. Return a Tuple
@@ -445,8 +445,8 @@ Base.splitdir(sftp::Client, path::AbstractString=".")::Tuple{URI,String} = split
 
 
 """
-    basename(uri::SFTP.URI, path::AbstractString=".") -> String
-    basename(sftp::SFTP.Client, path::AbstractString=".") -> String
+    basename(uri::URI, path::AbstractString=".") -> String
+    basename(sftp::SecureFTP.Client, path::AbstractString=".") -> String
 
 Get the file name or current folder name of a `path`. The `path` can be absolute
 or relative to the `uri` itself or of the `sftp` server given.
@@ -488,8 +488,8 @@ end
 
 """
     symlink_target!(
-        sftp::SFTP.Client,
-        stats::SFTP.StatStruct,
+        sftp::SecureFTP.Client,
+        stats::SecureFTP.StatStruct,
         root::AbstractString,
         dirs::Vector{String},
         files::Vector{String},
@@ -540,7 +540,7 @@ end
 
 
 """
-    analyse_path(sftp::SFTP.Client, root::AbstractString) -> Bool
+    analyse_path(sftp::SecureFTP.Client, root::AbstractString) -> Bool
 
 Return, whether the `root` on the `sftp` server is a directory or a link pointing
 to a directory and the path of the directory.
@@ -564,7 +564,7 @@ end
 
 
 """
-    unescape_joinpath(sftp::SFTP.Client, path::AbstractString) -> String
+    unescape_joinpath(sftp::SecureFTP.Client, path::AbstractString) -> String
 
 Join the `path` with the URI path in `sftp` and return the unescaped path.
 Note, this function should not use URL:s since CURL:s api need spaces
@@ -574,7 +574,7 @@ unescape_joinpath(sftp::Client, path::AbstractString)::String =
 
 
 """
-    ftp_command(sftp::SFTP.Client, command::String)
+    ftp_command(sftp::SecureFTP.Client, command::String)
 
 Execute the `command` on the `sftp` server.
 """

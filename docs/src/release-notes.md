@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "https://github.com/LIM-AeroCloud/SFTP.jl/blob/master/CHANGELOG.md"
+EditURL = "https://github.com/LIM-AeroCloud/SecureFTP.jl/blob/master/CHANGELOG.md"
 ```
 
 # Release Notes
@@ -7,17 +7,17 @@ EditURL = "https://github.com/LIM-AeroCloud/SFTP.jl/blob/master/CHANGELOG.md"
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [v0.1.0](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0) - 2025-04-23
+## [v0.1.0](https://github.com/LIM-AeroCloud/SecureFTP.jl/releases/tag/v0.1.0) - 2025-04-23
 
 The initial release is based on [SFTPClient (v0.4.4)](https://github.com/stensmo/SFTPClient.jl/releases/tag/0.4.4).
 All changes for this released are documented in respect to this version.
 
 ### Added
 
-- Initial release with new project name SFTP.jl and new initial version v0.1.0
+- Initial release with new project name SecureFTP.jl and new initial version v0.1.0
 - Prefer `Logging` over simple print commands
 - Overload `stat` with simplified `stat` method for a single path object
-  (in contrast to `statscan` that scans the whole folder) and return an `SFTP.StatStruct`
+  (in contrast to `statscan` that scans the whole folder) and return an `SecureFTP.StatStruct`
 - Overlaod Base functions for the file system; new methods added for:
   - `ispath`
   - `pwd`
@@ -69,5 +69,3 @@ All changes for this released are documented in respect to this version.
 - Several fixes concerning the representation of paths (especially under Windows)
 - Symlinks are now recognised by `stat`/`statscan`
 - `walkdir` correctly follows symlinks
-
-

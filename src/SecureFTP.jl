@@ -1,4 +1,4 @@
-module SFTP
+module SecureFTP
 
 import Downloads
 import LibCURL
@@ -19,4 +19,4 @@ end
 
 export upload, statscan, URI
 
-end # module SFTP
+end # module SecureFTP

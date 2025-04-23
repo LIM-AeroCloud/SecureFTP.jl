@@ -2,13 +2,13 @@
 
 """
     statscan(
-        sftp::SFTP.Client,
+        sftp::SecureFTP.Client,
         path::AbstractString=".";
         sort::Bool=true,
         show_cwd_and_parent::Bool=false
-    ) -> Vector{SFTP.StatStruct}
+    ) -> Vector{SecureFTP.StatStruct}
 
-Like [`stat`](@ref), but returns a Vector of [`SFTP.StatStruct`](@ref) with filesystem stats
+Like [`stat`](@ref), but returns a Vector of [`SecureFTP.StatStruct`](@ref) with filesystem stats
 for all objects in the given `path`.
 
 !!! tip
@@ -17,13 +17,13 @@ for all objects in the given `path`.
 !!! note
     You can only run this on directories.
 
-By default, the [`SFTP.StatStruct`](@ref) vector is sorted by the descriptions
+By default, the [`SecureFTP.StatStruct`](@ref) vector is sorted by the descriptions
 (`desc` fields). For large folder contents, `sort` can be set to `false` to increase
 performance, if the output order is irrelevant. If `show_cwd_and_parent` is set to `true`,
-the [`SFTP.StatStruct`](@ref) vector includes entries for `"."` and `".."` on position
+the [`SecureFTP.StatStruct`](@ref) vector includes entries for `"."` and `".."` on position
 1 and 2, respectively.
 
-see also: [`stat`](@ref stat(sftp::SFTP.Client, ::AbstractString))
+see also: [`stat`](@ref stat(sftp::SecureFTP.Client, ::AbstractString))
 """
 function statscan(
     sftp::Client,
@@ -61,9 +61,9 @@ end
 
 
 """
-    stat(sftp::SFTP.Client, path::AbstractString=".") -> SFTP.StatStruct
+    stat(sftp::SecureFTP.Client, path::AbstractString=".") -> SecureFTP.StatStruct
 
-Return a [`SFTP.StatStruct`](@ref) with information about the `path`
+Return a [`SecureFTP.StatStruct`](@ref) with information about the `path`
 (file, directory or symlink) on the `sftp` server.
 
 !!! note
@@ -92,16 +92,16 @@ end
 const PERFORMANCE_NOTICE = """
 A convenience method exists to directly check the `path` on the `sftp` server.
 However, if several path objects in the same folder are analysed, it is much more
-performant to use [`statscan`](@ref) once and then analyse each [`SFTP.StatStruct`](@ref).
+performant to use [`statscan`](@ref) once and then analyse each [`SecureFTP.StatStruct`](@ref).
 """
 
 """
-    filemode(sftp::SFTP.Client, path::AbstractString=".") -> UInt
-    filemode(st::SFTP.StatStruct) -> UInt
+    filemode(sftp::SecureFTP.Client, path::AbstractString=".") -> UInt
+    filemode(st::SecureFTP.StatStruct) -> UInt
 
-Return the filemode of the [`SFTP.StatStruct`](@ref). $PERFORMANCE_NOTICE
+Return the filemode of the [`SecureFTP.StatStruct`](@ref). $PERFORMANCE_NOTICE
 
-see also: [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+see also: [`ispath`](@ref ispath(::SecureFTP.Client, ::AbstractString)),
 [`isdir`](@ref), [`isfile`](@ref), [`islink`](@ref)
 """
 Base.filemode
@@ -110,7 +110,7 @@ Base.filemode(sftp::Client, path::AbstractString=".")::UInt = stat(sftp, path).m
 
 
 """
-    ispath(sftp::SFTP.Client, path::AbstractString=".") -> Bool
+    ispath(sftp::SecureFTP.Client, path::AbstractString=".") -> Bool
 
 Return `true`, if a `path` exists on the `sftp` server, i.e. is a file, folder or link.
 Otherwise, return `false`.
@@ -126,13 +126,13 @@ end
 
 
 """
-    isdir(sftp::SFTP.Client, path::AbstractString=".") -> Bool
-    isdir(st::SFTP.StatStruct) -> Bool
+    isdir(sftp::SecureFTP.Client, path::AbstractString=".") -> Bool
+    isdir(st::SecureFTP.StatStruct) -> Bool
 
-Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a directory, `false` otherwise.
+Analyse the [`SecureFTP.StatStruct`](@ref) and return `true` for a directory, `false` otherwise.
 $PERFORMANCE_NOTICE
 
-see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SecureFTP.Client, ::AbstractString)),
 [`isfile`](@ref), [`islink`](@ref)
 """
 Base.isdir
@@ -141,13 +141,13 @@ Base.isdir(sftp::Client, path::AbstractString=".")::Bool = filemode(sftp, path) 
 
 
 """
-    isfile(sftp::SFTP.Client, path::AbstractString=".") -> Bool
-    isfile(st::SFTP.StatStruct) -> Bool
+    isfile(sftp::SecureFTP.Client, path::AbstractString=".") -> Bool
+    isfile(st::SecureFTP.StatStruct) -> Bool
 
-Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a file, `false` otherwise.
+Analyse the [`SecureFTP.StatStruct`](@ref) and return `true` for a file, `false` otherwise.
 $PERFORMANCE_NOTICE
 
-see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SecureFTP.Client, ::AbstractString)),
 [`isdir`](@ref), [`islink`](@ref)
 """
 Base.isfile
@@ -156,13 +156,13 @@ Base.isfile(sftp::Client, path::AbstractString=".")::Bool = filemode(sftp, path)
 
 
 """
-    islink(sftp::SFTP.Client, path::AbstractString=".") -> Bool
-    islink(st::SFTP.StatStruct) -> Bool
+    islink(sftp::SecureFTP.Client, path::AbstractString=".") -> Bool
+    islink(st::SecureFTP.StatStruct) -> Bool
 
-Analyse the [`SFTP.StatStruct`](@ref) and return `true` for a symbolic link, `false` otherwise.
+Analyse the [`SecureFTP.StatStruct`](@ref) and return `true` for a symbolic link, `false` otherwise.
 $PERFORMANCE_NOTICE
 
-see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SFTP.Client, ::AbstractString)),
+see also: [`filemode`](@ref), [`ispath`](@ref ispath(::SecureFTP.Client, ::AbstractString)),
 [`isdir`](@ref), [`isfile`](@ref)
 """
 Base.islink

@@ -1,9 +1,9 @@
 ## Structs
 
 """
-    mutable struct SFTP.Client
+    mutable struct SecureFTP.Client
 
-`SFTP` manages the connection to the server and stores all relevant connection data.
+`SecureFTP` manages the connection to the server and stores all relevant connection data.
 
 # Fields
 
@@ -20,8 +20,8 @@
 
 # Constructors
 
-    SFTP.Client(url::AbstractString, username::AbstractString, public_key_file::AbstractString, public_key_file::AbstractString; kwargs) -> SFTP.Client
-    SFTP.Client(url::AbstractString, username::AbstractString, password::AbstractString=""; kwargs) -> SFTP.Client
+    SecureFTP.Client(url::AbstractString, username::AbstractString, public_key_file::AbstractString, public_key_file::AbstractString; kwargs) -> SecureFTP.Client
+    SecureFTP.Client(url::AbstractString, username::AbstractString, password::AbstractString=""; kwargs) -> SecureFTP.Client
 
 !!! note
     A `username` must be provided for both methods to work.
@@ -36,7 +36,7 @@
     The correct setup can be tested in the terminal with
     `ssh myuser@mysitewhereIhaveACertificate.com`.
 
-Construct an `SFTP.Client` from the url and either user information or public and private key files.
+Construct an `SecureFTP.Client` from the url and either user information or public and private key files.
 
 ## Arguments
 
@@ -55,9 +55,9 @@ The following keyword arguments exist with default values given in parentheses:
 
 # Examples
 
-    sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser", "test.pub", "test.pem")
-    sftp = SFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser")
-    sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    sftp = SecureFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser", "test.pub", "test.pem")
+    sftp = SecureFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser")
+    sftp = SecureFTP.Client("sftp://test.rebex.net", "demo", "password")
 """
 mutable struct Client
     downloader::Downloader
@@ -73,7 +73,7 @@ end
 
 
 """
-    struct SFTP.StatStruct
+    struct SecureFTP.StatStruct
 
 Hold information for file system objects on a Server.
 
@@ -90,9 +90,9 @@ Hold information for file system objects on a Server.
 
 # Constructors
 
-    SFTP.StatStruct(stats::AbstractString) -> SFTP.StatStruct
+    SecureFTP.StatStruct(stats::AbstractString) -> SecureFTP.StatStruct
 
-Parse the `stats` string and return an `SFTP.StatStruct`.
+Parse the `stats` string and return an `SecureFTP.StatStruct`.
 
 The `stats` are of the format:
 
@@ -125,7 +125,7 @@ end
 
 ## External constructors
 
-# See SFTP.Client struct for help/docstrings
+# See SecureFTP.Client struct for help/docstrings
 function Client(
     url::AbstractString,
     username::AbstractString,
@@ -145,7 +145,7 @@ function Client(
 end
 
 
-# See SFTP.Client struct for help/docstrings
+# See SecureFTP.Client struct for help/docstrings
 function Client(
     url::AbstractString,
     username::AbstractString,
@@ -169,7 +169,7 @@ function Client(
 end
 
 
-# See SFTP.StatStruct struct for help/docstrings
+# See SecureFTP.StatStruct struct for help/docstrings
 StatStruct(stats::AbstractString, root::AbstractString)::StatStruct = StatStruct(string(stats), string(root))
 
 function StatStruct(stats::String, root::String)::StatStruct
@@ -181,17 +181,17 @@ end
 
 ## Overload Base functions
 
-Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
+Base.show(io::IO, sftp::Client)::Nothing =  println(io, "SecureFTP.Client(\"$(sftp.username)@$(sftp.uri.host)\")")
 
 Base.broadcastable(sftp::Client) = Ref(sftp)
 
 
-#* Base function overloads for comparision and sorting of SFTPStatStructs
+#* Base function overloads for comparision and sorting of SecureFTP.StatStructs
 
 """
-    isequal(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+    isequal(a::SecureFTP.StatStruct, b::SecureFTP.StatStruct) -> Bool
 
-Compares equality between the description (`desc` fields) of two `SFTP.StatStruct` objects
+Compares equality between the description (`desc` fields) of two `SecureFTP.StatStruct` objects
 and returns `true` for equality, otherwise `false`.
 """
 Base.isequal(a::StatStruct, b::StatStruct)::Bool =
@@ -199,9 +199,9 @@ Base.isequal(a::StatStruct, b::StatStruct)::Bool =
 
 
 """
-    isless(a::SFTP.StatStruct, b::SFTP.StatStruct) -> Bool
+    isless(a::SecureFTP.StatStruct, b::SecureFTP.StatStruct) -> Bool
 
-Compares the descriptions (`desc` fields) of two `SFTP.StatStruct` objects
+Compares the descriptions (`desc` fields) of two `SecureFTP.StatStruct` objects
 and returns `true`, if `a` is lower than `b`, otherwise `false`.
 """
 Base.isless(a::StatStruct, b::StatStruct)::Bool = a.desc < b.desc
@@ -284,7 +284,7 @@ end
 
 
 """
-    change_uripath(sftp::SFTP.Client, path::AbstractString...) -> URI
+    change_uripath(sftp::SecureFTP.Client, path::AbstractString...) -> URI
     change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union{Bool,Nothing}=nothing) -> URI
 
 Return an updated `uri` struct with the given `path`.
@@ -330,7 +330,7 @@ end
 
 
 """
-    findbase(stats::Vector{SFTP.StatStruct}, base::AbstractString, path::AbstractString) -> Int
+    findbase(stats::Vector{SecureFTP.StatStruct}, base::AbstractString, path::AbstractString) -> Int
 
 Return the index of `base` in `stats` or throw an `IOError`, if `base` is not found.
 """
@@ -347,7 +347,7 @@ function findbase(stats::Vector{StatStruct}, base::AbstractString, path::Abstrac
 end
 
 
-## Helper functions for SFTP.Client struct and fingerprints
+## Helper functions for SecureFTP.Client struct and fingerprints
 
 """
     check_and_create_fingerprint(
@@ -429,7 +429,7 @@ end
 ## Helper functions Curl options
 
 """
-    set_stdopt(sftp::SFTP.Client, easy::Easy)
+    set_stdopt(sftp::SecureFTP.Client, easy::Easy)
 
 Set defaults for a number of curl `easy` options as defined by the `sftp` client.
 """
@@ -450,7 +450,7 @@ end
 
 
 """
-    reset_easy_hook(sftp::SFTP.Client)
+    reset_easy_hook(sftp::SecureFTP.Client)
 
 Reset curl `easy` options to standard as defined by the `sftp` client.
 """

@@ -23,8 +23,8 @@ in `C:\Users\{your_user}\.ssh` on Windows and `~/.ssh` on Linux and Mac.
 To set up certificate authentication, create the certificates in the `~/.ssh/id_rsa` and
 `~/.ssh/id_rsa.pub` files. On Windows these are located in `C:\Users\{your user}\.ssh`.
 
-Then use the function  `sftp = SFTP("sftp://mysitewhereIhaveACertificate.com", "myuser")`
-to create a SFTP type.
+Then use the function  `sftp = SecureFTP.Client("sftp://mysitewhereIhaveACertificate.com", "myuser")`
+to create a `Client` type.
 
 ### Example files
 
