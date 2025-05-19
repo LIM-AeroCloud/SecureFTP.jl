@@ -36,7 +36,7 @@ wd_closed = walkdir(sftp, "/pub/example/readme.txt")
     cd(sftp_root, "pub/example")
     @test sftp_root.uri.path == sftp.uri.path
     @test pwd(sftp) == "/pub/example/"
-    @test basename(sftp.uri) == "example"
+    @test basename(sftp) == "example"
     @test SFTP.unescape_joinpath(sftp, "unescaped dir") == "/pub/example/unescaped dir"
     @test files == wd_target[3]
     @test dirs == ["example"]
@@ -57,6 +57,11 @@ wd_closed = walkdir(sftp, "/pub/example/readme.txt")
     sftp.uri = URI("sftp://test.rebex.net")
     @test sftp.uri.path == ""
     @test pwd(sftp) == "/"
+    cd(sftp, "/")
+    @test splitdir(sftp) == (sftp.uri, "")
+    @test splitdir(sftp, "pub") == (sftp.uri, "pub")
+    cd(sftp, "pub/")
+    @test splitdir(sftp, "/pub/example/") == (sftp.uri, "example")
 end
 
 ## Test everything possible about structs and stat that is not already covered
@@ -152,4 +157,16 @@ end
         @test_throws Base.IOError download(f, sftp, "foo.txt")
         @test_throws Base.IOError download(f, sftp, "pub")
     end
+end
+
+# Test that joinpath method for URI structs gives the corrected results
+# and the correct method is used by change_uripath
+@testset "URI methods" begin
+    sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+    @test SFTP.joinpath(sftp.uri, "/a/b/c").path == "/a/b/c"
+    @test SFTP.change_uripath(sftp.uri, "/a/b/c").path == "/a/b/c"
+    @test_throws MethodError pwd(sftp.uri)
+    cd(sftp, "/pub/example")
+    @test SFTP.pwd(sftp.uri) == "/pub/example/"
+    @test pwd(sftp) == "/pub/example/"
 end
