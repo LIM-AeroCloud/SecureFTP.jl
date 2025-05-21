@@ -21,7 +21,13 @@ function Base.pwd(sftp::Client)::String
     end
 end
 
-pwd(uri::URI)::String = isempty(uri.path) ? "/" : string(uri.path)
+
+"""
+    cwd(sftp::SFTP.Client) -> String
+
+Return the current path of the `uri`.
+"""
+cwd(uri::URI)::String = isempty(uri.path) ? "/" : string(uri.path)
 
 
 """
@@ -91,11 +97,11 @@ function Base.mv(
             # Loop over folder contents
             for (path, dirs, files) in walkdir(sftp, uri.path)
                 # Sync folders
-                mkpath.(sftp, joinpath.(sftp, dst, path[root_idx:end], dirs) .|> pwd)
+                mkpath.(sftp, joinpath.(sftp, dst, path[root_idx:end], dirs) .|> cwd)
                 # Sync files
                 isempty(files) && continue
-                old_file = joinpath.(sftp, path, files) .|> pwd
-                new_file = joinpath.(sftp, dst, path[root_idx:end], files) .|> pwd
+                old_file = joinpath.(sftp, path, files) .|> cwd
+                new_file = joinpath.(sftp, dst, path[root_idx:end], files) .|> cwd
                 [ftp_command(sftp,
                     "rename '$(unescape_joinpath(sftp, old_file[i]))' '$(unescape_joinpath(sftp, new_file[i]))'")
                     for i = 1:length(files)
@@ -177,7 +183,7 @@ existing folders, an error is thrown.
 see also: [`mkpath`](@ref mkpath(::SFTP.Client, ::AbstractString))
 """
 function Base.mkdir(sftp::Client, dir::AbstractString)::String
-    uripath = joinpath(sftp, dir) |> pwd
+    uripath = joinpath(sftp, dir) |> cwd
     uri, base = splitdir(sftp, uripath)
     isadir = analyse_path(sftp, uri.path)
     if isadir
@@ -363,7 +369,7 @@ function Base.walkdir(
         end
         # Scan subdirectories recursively
         for dir in dirs
-            _walkdir!(chnl, joinpath(uri, dir) |> pwd)
+            _walkdir!(chnl, joinpath(uri, dir) |> cwd)
         end
         # Save path objects bottom-up
         if !topdown

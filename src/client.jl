@@ -303,7 +303,7 @@ function change_uripath(uri::URI, path::AbstractString...; trailing_slash::Union
         push!(paths, replace(p, Base.Filesystem.path_separator => "/"))
     end
     # Issue with // at the beginning of a path can be resolved by ensuring non-empty paths
-    isempty(uri.path) && (uri = URI(uri, path = "/"))
+    uri = URI(uri, path = cwd(uri))
     uri = joinpath(uri, paths...)
     uri = if istrue(trailing_slash)
         # Add trailing slash for directories and when flag is true

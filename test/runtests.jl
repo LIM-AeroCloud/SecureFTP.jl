@@ -167,6 +167,6 @@ end
     @test SFTP.change_uripath(sftp.uri, "/a/b/c").path == "/a/b/c"
     @test_throws MethodError pwd(sftp.uri)
     cd(sftp, "/pub/example")
-    @test SFTP.pwd(sftp.uri) == "/pub/example/"
+    @test SFTP.cwd(sftp.uri) == "/pub/example/"
     @test pwd(sftp) == "/pub/example/"
 end
