@@ -35,10 +35,8 @@ walkdir(::SFTP.Client, ::AbstractString; kwargs...)
 ## Analyse and manipulate server paths
 
 !!! warning "Deprecation warning"
-    All methods using `URI` instead of [`SFTP.Client`](@ref) in [`joinpath`](@ref),
-    [`basename`](@ref), and [`splitdir`](@ref) will be deprecated in v0.2.0 to avoid
-    type piracy. The [`joinpath`](@ref) method is directly available from the
-    [URIs package](https://github.com/JuliaWeb/URIs.jl.git).
+    All methods using `URI` instead of [`SFTP.Client`](@ref) in [`basename`](@ref)
+    and [`splitdir`](@ref) will be deprecated in v0.2.0 to avoid type piracy.
 
 !!! warning "Known issue"
     [URIs'](https://github.com/JuliaWeb/URIs.jl.git) `joinpath` method currently
@@ -48,8 +46,9 @@ walkdir(::SFTP.Client, ::AbstractString; kwargs...)
 
 ```@docs
 joinpath
-basename
 splitdir
+dirname
+basename
 ```
 
 ## Getting statistics on path objects

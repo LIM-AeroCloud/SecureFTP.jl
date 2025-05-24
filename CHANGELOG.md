@@ -5,6 +5,10 @@ The format of the release notes follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Added
+
+- Overload Julia's `dirname` with a method for `SFTP` ([#9]).
+
 ### Deprecated
 
 - The following methods have been deprecated to avoid type piracy ([#8]):
@@ -87,3 +91,4 @@ All changes for this released are documented in respect to this version.
 
 [v0.1.0]: https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0
 [#8]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/8
+[#9]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/9
