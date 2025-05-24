@@ -5,9 +5,34 @@ EditURL = "https://github.com/LIM-AeroCloud/SFTP.jl/blob/master/CHANGELOG.md"
 # Release Notes
 
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [v0.1.0](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0) - 2025-04-23
+## [v0.1.1](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.1) - 2025-05-24
+
+### Added
+
+- Overload Julia's `dirname` with a method for `SFTP` ([#9](https://github.com/LIM-AeroCloud/SFTP.jl/issues/9)).
+
+### Deprecated
+
+- The following methods have been deprecated to avoid type piracy ([#8](https://github.com/LIM-AeroCloud/SFTP.jl/issues/8)):
+  - `pwd(::URI)`
+  - `splitdir(::URI)`
+  - `basename(::URI)`
+- For `joinpath`, the provided method by the `URIs` package is used, an internal `cwd` function
+  replaces `pwd`, `splitdir` and `basename` will be removed without replacement.
+
+### Removed
+
+- The `joinpath(::URI, paths::AbstractString...)` method is directly removed as it seems,
+  previously URIs' `joinpath` method was used anyway ([#8](https://github.com/LIM-AeroCloud/SFTP.jl/issues/8)).
+
+### Fixed
+
+- Ensure all `AbstractString` paths are converted to `String` in function `readdir`
+  for correct processing of the paths ([#10](https://github.com/LIM-AeroCloud/SFTP.jl/issues/10)).
+
+## [v0.1.0](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0) - 2025-05-18
 
 The initial release is based on [SFTPClient (v0.4.4)](https://github.com/stensmo/SFTPClient.jl/releases/tag/0.4.4).
 All changes for this released are documented in respect to this version.
