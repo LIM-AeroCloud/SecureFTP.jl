@@ -23,6 +23,11 @@ The format of the release notes follows [Keep a Changelog](https://keepachangelo
 - The `joinpath(::URI, paths::AbstractString...)` method is directly removed as it seems,
   previously URIs' `joinpath` method was used anyway ([#8]).
 
+### Fixed
+
+- Ensure all `AbstractString` paths are converted to `String` in function `readdir`
+  for correct processing of the paths ([#10]).
+
 ## [v0.1.0] - 2025-05-18
 
 The initial release is based on [SFTPClient (v0.4.4)](https://github.com/stensmo/SFTPClient.jl/releases/tag/0.4.4).
@@ -92,3 +97,4 @@ All changes for this released are documented in respect to this version.
 [v0.1.0]: https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0
 [#8]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/8
 [#9]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/9
+[#10]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/10

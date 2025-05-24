@@ -245,7 +245,7 @@ function Base.readdir(
     check_path::Bool=false
 )::Vector{String}
     # Set path and optionally check validity
-    uri = joinpath(sftp.uri, path, "")
+    uri = joinpath(sftp.uri, string(path), "")
     check_path && stat(sftp, uri.path)
 
     # Reading folder
