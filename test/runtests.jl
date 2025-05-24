@@ -58,11 +58,15 @@ wd_closed = walkdir(sftp, "/pub/example/readme.txt")
     @test pwd(sftp) == "/"
     cd(sftp, "/")
     @test basename(sftp) == ""
+    @test dirname(sftp) == "/"
     @test splitdir(sftp) == (sftp.uri, "")
     @test splitdir(sftp, "pub") == (sftp.uri, "pub")
     cd(sftp, "pub/")
     @test basename(sftp) == "pub"
-    @test splitdir(sftp, "/pub/example/") == (sftp.uri, "example")
+    @test dirname(sftp) == "/"
+    @test splitdir(sftp, "foo/bar") == (URI("sftp://test.rebex.net/pub/foo/"), "bar")
+    @test basename(sftp, "foo/bar") == "bar"
+    @test dirname(sftp, "foo/bar") == "/pub/foo/"
 end
 
 ## Test everything possible about structs and stat that is not already covered
@@ -118,6 +122,15 @@ uri = URI("sftp://test.com/root/path")
         @test SFTP.change_uripath(sftp, "..") == URI("sftp://test.rebex.net/pub/")
         @test_throws Base.IOError SFTP.change_uripath(sftp, "/foo")
     end
+    # Test type piracy avoidance
+    @testset "URI methods" begin
+        sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
+        @test SFTP.change_uripath(sftp.uri, "/a/b/c").path == "/a/b/c"
+        cd(sftp, "/pub/example")
+        @test_skip @test_throws MethodError pwd(sftp.uri)
+        @test SFTP.cwd(sftp.uri) == "/pub/example/"
+        @test (@test_nowarn pwd(sftp)) == "/pub/example/"
+    end
     @test_throws Base.IOError SFTP.findbase(target_structs, "foo", "bar")
 end
 
@@ -160,18 +173,6 @@ end
     end
 end
 
-
-## URI methods
-# Test that joinpath method for URI structs gives the corrected results
-# and the correct method is used by change_uripath
-@testset "URI methods" begin
-    sftp = SFTP.Client("sftp://test.rebex.net", "demo", "password")
-    @test SFTP.change_uripath(sftp.uri, "/a/b/c").path == "/a/b/c"
-    cd(sftp, "/pub/example")
-    @test_skip @test_throws MethodError pwd(sftp.uri)
-    @test SFTP.cwd(sftp.uri) == "/pub/example/"
-    @test (@test_nowarn pwd(sftp)) == "/pub/example/"
-end
 
 ## Deprecations
 include("deprecated.jl")

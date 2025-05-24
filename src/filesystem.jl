@@ -438,6 +438,15 @@ end
 
 
 """
+    dirname(sftp::SFTP.Client, path::AbstractString=".") -> String
+
+Get the directory part of a `path` on the `sftp` server.
+"""
+Base.dirname(sftp::Client, path::AbstractString=".")::String =
+    splitdir(sftp, path)[1].path
+
+
+"""
     basename(sftp::SFTP.Client, path::AbstractString=".") -> String
 
 Get the file name or current folder name of a `path`. The `path` can be absolute
