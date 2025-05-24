@@ -2,20 +2,14 @@
 
 """
     pwd(sftp::SFTP.Client) -> String
-    pwd(uri::SFTP.URI) -> String
 
-Get the current directory of the `uri` or the `sftp` server.
-If an `SFTP.Client` is given, `pwd` checks whether the path is valid and throws an
-`IOError` otherwise. For `URI` there are no validity checks.
+Get the current directory of the `sftp` server. Also checks whether the path is valid
+and throws an `IOError` otherwise.
 
 see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
 [`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
 [`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
 """
-Base.pwd
-
-Base.pwd(uri::URI)::String = isempty(uri.path) ? "/" : string(uri.path)
-
 function Base.pwd(sftp::Client)::String
     if isempty(sftp.uri.path)
         return "/"
@@ -26,6 +20,14 @@ function Base.pwd(sftp::Client)::String
         return sftp.uri.path
     end
 end
+
+
+"""
+    cwd(sftp::SFTP.Client) -> String
+
+Return the current path of the `uri`.
+"""
+cwd(uri::URI)::String = isempty(uri.path) ? "/" : string(uri.path)
 
 
 """
@@ -95,11 +97,11 @@ function Base.mv(
             # Loop over folder contents
             for (path, dirs, files) in walkdir(sftp, uri.path)
                 # Sync folders
-                mkpath.(sftp, joinpath.(sftp, dst, path[root_idx:end], dirs) .|> pwd)
+                mkpath.(sftp, joinpath.(sftp, dst, path[root_idx:end], dirs) .|> cwd)
                 # Sync files
                 isempty(files) && continue
-                old_file = joinpath.(sftp, path, files) .|> pwd
-                new_file = joinpath.(sftp, dst, path[root_idx:end], files) .|> pwd
+                old_file = joinpath.(sftp, path, files) .|> cwd
+                new_file = joinpath.(sftp, dst, path[root_idx:end], files) .|> cwd
                 [ftp_command(sftp,
                     "rename '$(unescape_joinpath(sftp, old_file[i]))' '$(unescape_joinpath(sftp, new_file[i]))'")
                     for i = 1:length(files)
@@ -181,7 +183,7 @@ existing folders, an error is thrown.
 see also: [`mkpath`](@ref mkpath(::SFTP.Client, ::AbstractString))
 """
 function Base.mkdir(sftp::Client, dir::AbstractString)::String
-    uripath = joinpath(sftp, dir) |> pwd
+    uripath = joinpath(sftp, dir) |> cwd
     uri, base = splitdir(sftp, uripath)
     isadir = analyse_path(sftp, uri.path)
     if isadir
@@ -243,7 +245,7 @@ function Base.readdir(
     check_path::Bool=false
 )::Vector{String}
     # Set path and optionally check validity
-    uri = joinpath(sftp.uri, path, "")
+    uri = joinpath(sftp.uri, string(path), "")
     check_path && stat(sftp, uri.path)
 
     # Reading folder
@@ -367,7 +369,7 @@ function Base.walkdir(
         end
         # Scan subdirectories recursively
         for dir in dirs
-            _walkdir!(chnl, joinpath(uri, dir) |> pwd)
+            _walkdir!(chnl, joinpath(uri, dir) |> cwd)
         end
         # Save path objects bottom-up
         if !topdown
@@ -392,27 +394,22 @@ end
 
 """
     joinpath(sftp::SFTP.Client, path::AbstractString...) -> URI
-    joinpath(sftp::URI, path::AbstractString...) -> URI
 
-Join any `path` with the uri of the `sftp` server or the `uri` directly and return
-an `URI` with the updated path. Any `path` components prior to an absolute `path`
-are dropped.
+Join any `path` with the uri of the `sftp` server and return an `URI` with the
+updated path. Any `path` components prior to an absolute `path` are dropped.
 
 !!! note
     The `uri` field of the `sftp` client remains unaffected by joinpath.
     Use `sftp.uri = joinpath(sftp, "new/path")` to update the URI on the `sftp` server.
 """
-function Base.joinpath(::Client) end
-# Fix for docs: add Client to function signature for combined docstring and filtering of Base docstring
-Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp.uri, path...)
-Base.joinpath(uri::URI, path::AbstractString...)::URI = change_uripath(uri, path...)
+Base.joinpath(sftp::Client, path::AbstractString...)::URI = joinpath(sftp, string.(path...))
+Base.joinpath(sftp::Client, path::String...)::URI = joinpath(sftp.uri, path...)
 
 
 """
-    splitdir(uri::SFTP.URI, path::AbstractString=".") -> Tuple{URI,String}
     splitdir(sftp::SFTP.Client, path::AbstractString=".") -> Tuple{URI,String}
 
-Join the `path` with the path of the URI in `sftp` (or the `uri` itself) and then
+Join the `path` with the path of the URI in `sftp` and then
 split it into the directory name and base name. Return a Tuple
 of `URI` with the split path and a `String` with the base name.
 
@@ -427,25 +424,29 @@ of `URI` with the split path and a `String` with the base name.
 
 see also: [`basename`](@ref)
 """
-Base.splitdir
-
-function Base.splitdir(uri::URI, path::AbstractString=".")::Tuple{URI,String}
+function Base.splitdir(sftp::Client, path::AbstractString=".")::Tuple{URI,String}
     # Join the path with the sftp.uri, ensure no trailing slashes in the path
     # ℹ First enforce trailing slashes with joinpath(..., ""), then remove the slash with path[1:end-1]
-    path = joinpath(uri, string(path), "").path[1:end-1]
-    # ¡ workaround for URIs joinpath
-    startswith(path, "//") && (path = path[2:end])
+    path = joinpath(sftp.uri, string(path), "").path[1:end-1]
     # Split directory from base name
-    dir, base = splitdir(path)
+    path = split(path, "/")
+    base = path[end]
+    dir = length(path) == 1 ? "/" : Base.join(vcat(path[1:end-1]..., ""), "/")
     # Convert dir to a URI with trailing slash
-    joinpath(URI(uri; path=dir), ""), base
+    joinpath(URI(sftp.uri; path=dir), ""), base
 end
-
-Base.splitdir(sftp::Client, path::AbstractString=".")::Tuple{URI,String} = splitdir(sftp.uri, path)
 
 
 """
-    basename(uri::SFTP.URI, path::AbstractString=".") -> String
+    dirname(sftp::SFTP.Client, path::AbstractString=".") -> String
+
+Get the directory part of a `path` on the `sftp` server.
+"""
+Base.dirname(sftp::Client, path::AbstractString=".")::String =
+    splitdir(sftp, path)[1].path
+
+
+"""
     basename(sftp::SFTP.Client, path::AbstractString=".") -> String
 
 Get the file name or current folder name of a `path`. The `path` can be absolute
@@ -458,9 +459,7 @@ If no `path` is given, the current path from the `uri` or `sftp` server is taken
 
 see also: [`splitdir`](@ref)
 """
-Base.basename
-Base.basename(uri::URI, path::AbstractString=".")::String = splitdir(uri, path)[2]
-Base.basename(sftp::Client, path::AbstractString=".") = splitdir(sftp.uri, path)[2]
+Base.basename(sftp::Client, path::AbstractString=".") = splitdir(sftp, path)[2]
 
 
 ## Helper functions for filesystem operations

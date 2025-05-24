@@ -1,25 +1,29 @@
 using Dates
 
+
+"""
+    get_version() -> String
+
+Get the release version from the release branch name.
+"""
+function get_version()
+    # Read current branch name
+    out = Pipe()
+    run(pipeline(ignorestatus(`git rev-parse --abbrev-ref HEAD`), stdout=out))
+    close(out.in)
+    rel = @async String(read(out))
+    rel = String(read(out)) |> chomp
+    return rel[5:end]
+end
+
+
 # Parse main Project.toml
 project = joinpath(@__DIR__, "..", "Project.toml")
 lines = readlines(project)
-# Find Julia version
+# Set release version
 vstring = "version = "
+version = get_version()
 i = findfirst(startswith(vstring), lines)
-vstart, vend = findall(isequal('"'), lines[i])
-vstart += 1
-vend -= 1
-println("current version: ", lines[i][vstart:vend])
-version = VersionNumber(lines[i][vstart:vend])
-
-# Set stable version
-if !isempty(version.prerelease)
-    println("Drop prerelease version ", join(version.prerelease, "."))
-end
-if !isempty(version.build)
-    println("Drop build version ", join(version.build, "."))
-end
-version = string(VersionNumber(version.major, version.minor, version.patch))
 lines[i] = vstring * '"' * version * '"'
 println("set version to ", version)
 

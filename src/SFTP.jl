@@ -12,9 +12,10 @@ include("client.jl")
 include("fileexchange.jl")
 include("filestats.jl")
 include("filesystem.jl")
+include("deprecated.jl")
 
 @static if VERSION ≥ v"1.11"
-    eval(Meta.parse("public Client, StatStruct, download, stat, filemode, ispath, isdir, isfile, islink, pwd, cd, mv, rm, mkdir, mkpath, readdir, walkdir, joinpath, splitdir, basename"))
+    eval(Meta.parse("public Client, StatStruct, download, stat, filemode, ispath, isdir, isfile, islink, pwd, cd, mv, rm, mkdir, mkpath, readdir, walkdir, joinpath, splitdir, dirname, basename"))
 end
 
 export upload, statscan, URI
