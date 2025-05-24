@@ -254,14 +254,14 @@ function mkfolder(
         dirs = setdiff(dirs, conflicts)
     elseif istrue(force)
         if isempty(__test__)
-            rm.(sftp, joinpath.(sftp, path, conflicts) .|> pwd, recursive = true, force = true)
+            rm.(sftp, joinpath.(sftp, path, conflicts) .|> cwd, recursive = true, force = true)
         else
             rm.(joinrootpath.(__test__, path, conflicts), recursive=true, force=true)
         end
     end
     # Create missing folders
     if isempty(__test__)
-        mkdir.(sftp, joinpath.(sftp, path, dirs) .|> pwd)
+        mkdir.(sftp, joinpath.(sftp, path, dirs) .|> cwd)
     else
         mkdir.(joinrootpath.(__test__, path, dirs))
     end
@@ -327,10 +327,10 @@ function upload_file(
     ignore_hidden && filter!(!startswith(hide_identifier), files)
     if isnothing(force)
         !isempty(conflicts) && throw(Base.IOError("cannot overwrite existing path(s) \
-            $(join(joinpath.(sftp, dst, files) .|> pwd, ", ", " and "))", -1))
+            $(join(joinpath.(sftp, dst, files) .|> cwd, ", ", " and "))", -1))
     elseif istrue(force)
         if isempty(__test__)
-            rm.(sftp, joinpath.(sftp, dst, conflicts) .|> pwd,
+            rm.(sftp, joinpath.(sftp, dst, conflicts) .|> cwd,
                 recursive = true, force = true)
         else
             rm.(joinrootpath.(__test__, dst, conflicts), recursive=true, force=true)
