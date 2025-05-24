@@ -12,18 +12,6 @@ end
 
 
 """
-    joinpath(uri::URI, path::AbstractString...) -> URI
-
-Join the `path` parts to the `uri` path. Absolute paths overwrite previously set paths.
-"""
-function Base.joinpath(uri::URI, path::AbstractString...)::URI
-    Base.depwarn(string("joinpath(::URI, path...) is deprecated. It will be removed in v0.2.0 to avoid type piracy. ",
-        "Use directly URIs.jl's joinpath method instead."), :joinpath)
-    change_uripath(uri, path...)
-end
-
-
-"""
     splitdir(uri::URI) -> Tuple{URI, String}
 
 Split the `uri` path into a directory and base part. The directory is returned as a `URI` with a

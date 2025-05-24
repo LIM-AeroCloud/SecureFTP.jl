@@ -9,11 +9,15 @@ The format of the release notes follows [Keep a Changelog](https://keepachangelo
 
 - The following methods have been deprecated to avoid type piracy ([#8]):
   - `pwd(::URI)`
-  - `joinpath(::URI, paths::AbstractString...)`
   - `splitdir(::URI)`
   - `basename(::URI)`
 - For `joinpath`, the provided method by the `URIs` package is used, an internal `cwd` function
   replaces `pwd`, `splitdir` and `basename` will be removed without replacement.
+
+### Removed
+
+- The `joinpath(::URI, paths::AbstractString...)` method is directly removed as it seems,
+  previously URIs' `joinpath` method was used anyway ([#8]).
 
 ## [v0.1.0] - 2025-05-18
 
