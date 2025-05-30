@@ -3,6 +3,13 @@
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Deprecated
+
+- Path checks in `pwd(::SFTP.Client)` are deprecated. This should be done during
+  the instantiation of the `SFTP.Client`.
+
 ## [v0.1.1] - 2025-05-24
 
 ### Added

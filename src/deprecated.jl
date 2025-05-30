@@ -1,4 +1,28 @@
 """
+    pwd(sftp::SFTP.Client) -> String
+
+Get the current directory of the `sftp` server. Also checks whether the path is valid
+and throws an `IOError` otherwise.
+
+see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
+[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
+"""
+function Base.pwd(sftp::Client)::String
+    Base.depwarn("From v0.2.0 on, the validity checks of the URI path in `sftp` are deprecated.", :pwd)
+    if isempty(sftp.uri.path)
+        return "/"
+    else
+        # TODO remove stat test -> path should have been validated before
+        # Check that path is valid or throw an error
+        stat(sftp, sftp.uri.path)
+        # Return valid path
+        return sftp.uri.path
+    end
+end
+
+
+"""
     pwd(uri::URI) -> String
 
 Return the current path of the `uri`.

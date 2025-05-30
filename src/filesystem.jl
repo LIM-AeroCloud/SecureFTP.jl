@@ -1,25 +1,20 @@
 ## Base filesystem functions
+#=
+#ISSUE include in v0.2.0 after deprecation of previous method
 
 """
     pwd(sftp::SFTP.Client) -> String
 
-Get the current directory of the `sftp` server. Also checks whether the path is valid
-and throws an `IOError` otherwise.
+    Get the current path of the `sftp` client. No checks are performed,
+    whether the path actially exists. This should have been done during the
+    instantiation of the `sftp` client.
 
-see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
-[`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
-[`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
-"""
-function Base.pwd(sftp::Client)::String
-    if isempty(sftp.uri.path)
-        return "/"
-    else
-        # Check that path is valid or throw an error
-        stat(sftp, sftp.uri.path)
-        # Return valid path
-        return sftp.uri.path
-    end
-end
+    see also: [`cd`](@ref cd(::SFTP.Client, ::AbstractString)),
+    [`mv`](@ref mv(::SFTP.Client, ::AbstractString, ::AbstractString; force::Bool=false)),
+    [`rm`](@ref rm(::SFTP.Client, ::AbstractString; recursive::Bool=false, force::Bool=false))
+    """
+    Base.pwd(sftp::Client)::String = isempty(sftp.uri.path) ? "/" : sftp.uri.path
+ =#
 
 
 """

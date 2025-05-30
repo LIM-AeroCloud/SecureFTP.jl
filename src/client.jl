@@ -113,7 +113,7 @@ struct StatStruct
             linkparts = split(desc, " -> ")
             if length(linkparts) == 2
                 desc = linkparts[1]
-                path = split(linkparts[2], "/")
+                path = URIs.splitpath(linkparts[2])
                 path = join(path[1:end - 1], "/")
                 root *= " -> " * path
             end
