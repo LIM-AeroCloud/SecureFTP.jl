@@ -3,7 +3,7 @@
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [v0.1.2] - 2025-05-31
 
 ### Deprecated
 
@@ -108,6 +108,7 @@ All changes for this released are documented in respect to this version.
 
 [v0.1.0]: https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.0
 [v0.1.1]: https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.1
+[v0.1.2]: https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.2
 [#8]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/8
 [#9]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/9
 [#10]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/10
