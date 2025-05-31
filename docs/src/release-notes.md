@@ -7,6 +7,18 @@ EditURL = "https://github.com/LIM-AeroCloud/SFTP.jl/blob/master/CHANGELOG.md"
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.2](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.2) - 2025-05-31
+
+### Deprecated
+
+- Path checks in `pwd(::SFTP.Client)` are deprecated ([#13](https://github.com/LIM-AeroCloud/SFTP.jl/issues/13)). This should be done during
+  the instantiation of the `SFTP.Client`.
+
+### Fixed
+
+- Add fallback solution to determine a `filemode` in `analyse_path`
+  with restricted access to the parent folder ([#14](https://github.com/LIM-AeroCloud/SFTP.jl/issues/14)).
+
 ## [v0.1.1](https://github.com/LIM-AeroCloud/SFTP.jl/releases/tag/v0.1.1) - 2025-05-24
 
 ### Added

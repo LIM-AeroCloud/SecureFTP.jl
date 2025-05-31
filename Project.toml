@@ -1,7 +1,7 @@
 name = "SFTP"
 uuid = "f44f501d-421f-4286-bfa3-132bd4e9b35e"
 authors = ["Peter Bräuer <pb866.git@gmail.com>"]
-version = "0.2.0-DEV"
+version = "0.1.2"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
