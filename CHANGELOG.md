@@ -3,6 +3,13 @@
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The format of the release notes follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Link targets are displayed as absolute paths again. This bug was introduced after switching
+  internally from split to URIs.splitpath, which does not consider root folders ([#18]).
+
 ## [v0.1.2] - 2025-05-31
 
 ### Deprecated
