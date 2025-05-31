@@ -73,6 +73,7 @@ end
 # Prepare tests
 sftp = SFTP.Client("sftp://test.rebex.net/pub/example/", "demo", "password")
 linkstat = SFTP.StatStruct("foo -> path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
+linkstatabs = SFTP.StatStruct("foo -> /path/to/foo", "symlink", 0x000000000000a000, 1, "demo", "users", 1024, 1.175e9)
 io = IOBuffer()
 show(io, sftp)
 res = String(take!(io))
@@ -82,6 +83,8 @@ res = String(take!(io))
     @test stats[1] == target_structs[1]
     @test linkstat.desc == "foo"
     @test linkstat.root == "symlink -> path/to"
+    @test linkstatabs.desc == "foo"
+    @test linkstatabs.root == "symlink -> /path/to"
     @test res == "SFTP.Client(\"demo@test.rebex.net\")\n"
     @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[1]) == true
     @test isequal(stat(sftp, "KeyGenerator.png"), target_structs[2]) == false
