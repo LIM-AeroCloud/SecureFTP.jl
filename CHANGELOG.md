@@ -7,8 +7,13 @@ The format of the release notes follows [Keep a Changelog](https://keepachangelo
 
 ### Deprecated
 
-- Path checks in `pwd(::SFTP.Client)` are deprecated. This should be done during
+- Path checks in `pwd(::SFTP.Client)` are deprecated ([#13]). This should be done during
   the instantiation of the `SFTP.Client`.
+
+### Fixed
+
+- Add fallback solution to determine a `filemode` in `analyse_path`
+  with restricted access to the parent folder ([#14]).
 
 ## [v0.1.1] - 2025-05-24
 
@@ -106,3 +111,5 @@ All changes for this released are documented in respect to this version.
 [#8]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/8
 [#9]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/9
 [#10]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/10
+[#13]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/13
+[#14]: https://github.com/LIM-AeroCloud/SFTP.jl/issues/14
