@@ -510,8 +510,8 @@ function symlink_target!(
     end
     # Get stats of link target
     target = try
-        target = split(stats.root, "->")[2] |> strip |> string
-        joinpath(sftp.uri.path, root, target)
+        src, target = split(stats.root, "->") .|> strip .|> string
+        joinpath(sftp.uri.path, src, target)
     catch
         throw(ArgumentError("the link root of the StatsStruct has the wrong format"))
     end
