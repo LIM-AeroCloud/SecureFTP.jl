@@ -18,7 +18,7 @@ to the typical Linux functionality exist to explore the SFTP server.
 - Navigate and manipulate server content with functions like [`pwd`](@ref), [`cd`](@ref),
   [`mv`](@ref), [`rm`](@ref), [`mkdir`](@ref), [`mkpath`](@ref)
 - Create script with the help of further filesystem functions like [`joinpath`](@ref),
-  [`basename`](@ref) or [`splitdir`](@ref)
+  [`basename`](@ref), [`dirname`](@ref) or [`splitdir`](@ref)
 
 ## SFTP Installation
 
