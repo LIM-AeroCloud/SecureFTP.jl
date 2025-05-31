@@ -545,7 +545,21 @@ function analyse_path(sftp::Client, root::AbstractString)::Bool
     islink(stats) || return isdir(stats)
     # Check link target
     files, dirs = Vector{String}(), Vector{String}()
-    symlink_target!(sftp, stats, root, dirs, files, true)
+    try symlink_target!(sftp, stats, root, dirs, files, true)
+    catch error
+        if error ≠ Downloads.RequestError && error.code ≠ 9
+            rethrow(error)
+        end
+        contents = readdir(sftp, root)
+        if isempty(contents)
+            # Warn, if fall-back solution fails
+            @warn "filemode of symlink $root could not be determined; added as file"
+            push!(files, stats.desc)
+        else
+            # If contents were read in root, it is assumed to be a folder
+            push!(dirs, stats.desc)
+        end
+    end
     # Return, if link is a folder and the path
     if length(dirs) == 1
         true
